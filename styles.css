@@ -143,3 +143,11 @@ button { cursor: pointer; }
   .hero-card h3 { font-size: 25px; }
   .score-bars > div { grid-template-columns: 85px 1fr 42px; }
 }
+
+.hero-actions{display:flex;gap:10px}.ghost-btn{border:1px solid var(--line);background:#fff;color:var(--text);padding:10px 15px;border-radius:10px;font-weight:600}.ghost-btn:hover{border-color:#cbd0ff;color:var(--accent)}
+.ai-recommendation{display:flex;align-items:center;gap:16px;margin-bottom:18px;border:1px solid #e3e5ff}.ai-icon{width:44px;height:44px;flex:0 0 auto;border-radius:13px;display:grid;place-items:center;background:var(--accent);color:#fff;font-size:12px;font-weight:800}.ai-recommendation h3{margin:4px 0 6px;font-size:16px}.ai-recommendation p{margin:0;color:var(--muted);line-height:1.6;font-size:13px}.ai-recommendation .text-btn{margin-left:auto;white-space:nowrap}
+.profile-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px}.profile-grid div{padding:12px;background:#f8f9fc;border-radius:11px}.profile-grid span,.profile-grid b{display:block}.profile-grid span{font-size:11px;color:var(--muted);margin-bottom:5px}.profile-grid b{font-size:13px}
+.plan-banner{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}.plan-banner b,.plan-banner span{display:block}.plan-banner span{color:var(--muted);font-size:12px;margin-top:5px}
+.quick-prompts{display:flex;gap:8px;flex-wrap:wrap;margin:-8px 0 14px}.quick-prompts button{border:1px solid var(--line);background:#fff;color:#4f586a;border-radius:999px;padding:8px 12px;font-size:12px}.quick-prompts button:hover{color:var(--accent);border-color:#cbd0ff}
+.mistake-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:18px}.mistake-stats .panel{padding:16px}.mistake-stats b,.mistake-stats span{display:block}.mistake-stats b{font-size:24px}.mistake-stats span{color:var(--muted);font-size:12px;margin-top:3px}
+@media(max-width:1000px){.profile-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:720px){.ai-recommendation{align-items:flex-start;flex-wrap:wrap}.ai-recommendation .text-btn{margin-left:60px}.plan-banner{align-items:flex-start;gap:12px;flex-direction:column}}

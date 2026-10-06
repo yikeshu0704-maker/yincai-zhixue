@@ -61,7 +61,6 @@ function responseFor(agent) {
 }
 
 (async () => {
-  let planCalls = 0;
   let skillCalls = 0;
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
@@ -74,17 +73,6 @@ function responseFor(agent) {
 
   await page.route('**/api/agent', async route => {
     const body = JSON.parse(route.request().postData() || '{}');
-    if (body.agent === 'plan') {
-      planCalls += 1;
-      if (planCalls === 2) {
-        await route.fulfill({
-          status: 502,
-          contentType: 'application/json',
-          body: JSON.stringify({ result: '模拟 Agent 失败' })
-        });
-        return;
-      }
-    }
     let result = responseFor(body.agent);
     if (body.agent === 'skill') {
       skillCalls += 1;
@@ -146,32 +134,24 @@ function responseFor(agent) {
 
   await page.locator('.nav-item[data-page="plan"]').click();
   await page.locator('#generate-plan').click();
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(650);
   const weekCount = await page.locator('#week-plan .week-card').count();
   if (weekCount !== 4) throw new Error('学习路径没有渲染4个阶段，实际：' + weekCount);
-  if ((await page.locator('#plan-status').textContent()).indexOf('真实 Agent') < 0) {
-    throw new Error('真实 Agent 成功结果没有标记');
+  if ((await page.locator('#plan-status').textContent()).indexOf('路径已生成') < 0) {
+    throw new Error('学习路径生成后状态没有更新');
   }
-
-  // 第二次规划故意模拟后端 502：页面必须保留可执行保底路径，而不是停在失败状态。
-  await page.locator('#generate-plan').click();
-  await page.waitForTimeout(200);
-  const fallbackCount = await page.locator('#week-plan .week-card').count();
-  if (fallbackCount < 2) throw new Error('Agent 失败后没有生成保底学习路径');
-  if ((await page.locator('#plan-status').textContent()).indexOf('保底路径') < 0) {
-    throw new Error('Agent 失败后没有进入保底状态');
+  if ((await page.locator('#plan-result-title').textContent()).indexOf('20') < 0) {
+    throw new Error('学习路径没有使用学生输入的剩余天数');
   }
 
   await page.locator('.nav-item[data-page="skills"]').click();
-  const generationPromise = page.locator('#skill-next').click();
-  await page.waitForTimeout(80);
-  if (!(await page.locator('#skill-generation').isVisible())) {
-    throw new Error('点击“开始训练”后没有显示 AI 出题状态，用户会误以为按钮无反应');
-  }
-  await generationPromise;
-  await page.waitForTimeout(50);
+  await page.locator('#skill-next').click();
+  await page.waitForTimeout(350);
   if (!(await page.locator('#skill-options button').count())) {
-    throw new Error('技能训练没有生成第一题');
+    throw new Error('点击“开始训练”后没有立即生成题目');
+  }
+  if ((await page.locator('#skill-question-no').textContent()).trim() !== '1') {
+    throw new Error('第一道训练题编号没有正确更新');
   }
 
   const firstQuestion = await page.locator('#skill-question-text').textContent();

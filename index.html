@@ -22,8 +22,10 @@
         <button class="nav-item" data-page="analysis">我的学情</button>
         <button class="nav-item" data-page="plan">学习路径</button>
         <button class="nav-item" data-page="qa">AI答疑</button>
+        <button class="nav-item" data-page="skills">技能训练</button>
         <button class="nav-item" data-page="mistakes">错题复盘</button>
         <button class="nav-item" data-page="report">学习报告</button>
+        <button class="nav-item" data-page="motivation">学习激励</button>
       </nav>
 
       <div class="sidebar-footer">
@@ -301,6 +303,79 @@
         </div>
       </section>
 
+      <section class="page" id="skills">
+        <div class="page-intro">
+          <span class="tag">技能训练 Agent</span>
+          <h3>不刷同一种题，训练强度跟着你的表现走</h3>
+          <p>Agent 读取知识点掌握度、连续答题表现和错误类型。一次函数基础已经掌握，就直接进入综合应用；连续答对则升级，答错则回退到需要补强的难度。</p>
+        </div>
+
+        <div class="skill-overview panel">
+          <div class="skill-topic">
+            <span class="eyebrow">当前训练技能</span>
+            <h3>一次函数 · 综合应用</h3>
+            <p>基础掌握度 <b>82%</b> · 综合应用掌握度 <b id="skill-mastery">65%</b></p>
+          </div>
+          <div class="skill-decision">
+            <span class="pill warning" id="skill-decision-pill">正在训练综合题</span>
+            <b id="skill-decision-text">基础题已稳定，当前需要把概念迁移到综合问题。</b>
+          </div>
+        </div>
+
+        <div class="skill-layout">
+          <section class="panel skill-question-panel">
+            <div class="panel-head">
+              <div><span class="eyebrow">第 <span id="skill-question-no">1</span> 题</span><h3 id="skill-level-title">综合题</h3></div>
+              <span class="pill" id="skill-level-pill">综合应用</span>
+            </div>
+            <div class="skill-question-box">
+              <b>题目</b>
+              <p id="skill-question-text">一次函数 y = kx + b 的图象经过 A(1,3) 和 B(3,7)，则该函数的解析式是？</p>
+            </div>
+            <div class="skill-options" id="skill-options">
+              <button data-skill-option="A">A. y = x + 2</button>
+              <button data-skill-option="B">B. y = 2x + 1</button>
+              <button data-skill-option="C">C. y = 3x</button>
+              <button data-skill-option="D">D. y = 2x - 1</button>
+            </div>
+            <div class="skill-feedback" id="skill-feedback">
+              <span>AI 评估规则</span>
+              <p>连续答对会提高难度；出现错误会先回到更适合当前状态的题型。</p>
+            </div>
+            <div class="skill-actions">
+              <button class="ghost-btn" id="skill-skip">这题我不会</button>
+              <button class="primary-btn" id="skill-submit">提交答案</button>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><h3>动态难度</h3><span class="pill success">实时调整</span></div>
+            <div class="difficulty-ladder">
+              <div class="difficulty-step"><span>01</span><div><b>基础题</b><small>概念与直接计算</small></div></div>
+              <div class="difficulty-connector"></div>
+              <div class="difficulty-step"><span>02</span><div><b>中等题</b><small>两步以内的综合应用</small></div></div>
+              <div class="difficulty-connector"></div>
+              <div class="difficulty-step active"><span>03</span><div><b>综合题</b><small>多条件、跨知识点</small></div></div>
+              <div class="difficulty-connector"></div>
+              <div class="difficulty-step"><span>04</span><div><b>变式题</b><small>换条件、换情境、迁移应用</small></div></div>
+            </div>
+            <div class="skill-rule-card">
+              <b>为什么现在不出基础题？</b>
+              <p>你的基础掌握度已经达到稳定区间，继续大量刷基础题的边际收益较低。Agent 把训练时间转给“综合应用”这个当前短板。</p>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel adaptive-training-summary">
+          <div><span class="eyebrow">本轮训练结果</span><h3 id="skill-result-title">准备开始</h3></div>
+          <div class="training-stats">
+            <div><span>连续答对</span><b id="skill-streak">0</b></div>
+            <div><span>当前难度</span><b id="skill-current-level">综合题</b></div>
+            <div><span>预计下一步</span><b id="skill-next-level">继续综合</b></div>
+          </div>
+        </section>
+      </section>
+
       <section class="page" id="mistakes">
         <div class="page-intro">
           <span class="tag">错题复盘 Agent</span>
@@ -378,6 +453,63 @@
           </div>
           <p>只有连续通过不同难度的检测，系统才把这个知识点从“待干预”移动到“稳定掌握”。</p>
         </section>
+      </section>
+
+      <section class="page" id="motivation">
+        <div class="page-intro">
+          <span class="tag">学习激励 Agent</span>
+          <h3>激励不是让你学更多，而是让今天的负担刚好</h3>
+          <p>系统只展示少量关键反馈：完成度、连续学习、知识点进步，以及 Agent 对今天学习负荷的判断。</p>
+        </div>
+
+        <div class="motivation-hero panel">
+          <div>
+            <span class="eyebrow">AI 今日建议</span>
+            <h3 id="motivation-title">今天完成 3 道错题复盘即可，不建议继续增加任务。</h3>
+            <p id="motivation-reason">你今天已经完成 80%，连续学习 5 天；与其继续堆任务，不如把剩余精力放到高价值的错题复盘。</p>
+          </div>
+          <span class="motivation-status" id="motivation-status">建议收尾</span>
+        </div>
+
+        <div class="motivation-grid">
+          <article class="panel motivation-card">
+            <span>今日完成</span>
+            <strong id="motivation-complete">80%</strong>
+            <div class="motivation-bar"><i id="motivation-complete-bar" style="width:80%"></i></div>
+            <small>4 / 5 项 · 已达到今日主要目标</small>
+          </article>
+          <article class="panel motivation-card">
+            <span>连续学习</span>
+            <strong>5 天</strong>
+            <div class="streak-dots"><i></i><i></i><i></i><i></i><i class="today"></i></div>
+            <small>今天完成即可保持连续学习</small>
+          </article>
+          <article class="panel motivation-card">
+            <span>一次函数</span>
+            <strong>65% → 82%</strong>
+            <div class="trend-up">↗ +17 个百分点</div>
+            <small>基础掌握已提升，训练重心已转向综合应用</small>
+          </article>
+        </div>
+
+        <div class="motivation-layout">
+          <section class="panel load-panel">
+            <div class="panel-head"><h3>今日学习负荷</h3><span class="pill success">适中</span></div>
+            <div class="load-gauge"><i style="width:68%"></i></div>
+            <div class="load-labels"><span>轻</span><b>68%</b><span>重</span></div>
+            <div class="load-reasons">
+              <div><span>✓</span><p>今日任务已完成 <b>80%</b></p></div>
+              <div><span>✓</span><p>连续学习 <b>5 天</b>，不建议突然增加时长</p></div>
+              <div><span>!</span><p>仍有 <b>3 道错题</b> 值得复盘，优先级高于新增刷题</p></div>
+            </div>
+          </section>
+
+          <section class="panel motivation-actions">
+            <div class="panel-head"><h3>让 Agent 调整今天的负担</h3><span class="pill">状态驱动</span></div>
+            <button class="motivation-action primary-action" id="finish-one-task"><b>我再完成 1 项任务</b><small>完成后自动重新评估今天是否还需要学习</small></button>
+            <button class="motivation-action" id="reduce-load"><b>今天状态一般，少安排一点</b><small>保留高优先级任务，其余顺延，不计入“偷懒”</small></button>
+          </section>
+        </div>
       </section>
 
       <section class="page" id="report">

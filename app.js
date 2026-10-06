@@ -41,22 +41,48 @@ document.querySelectorAll('[data-toast]').forEach((button) => button.addEventLis
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const chatLog = document.getElementById('chat-log');
-chatForm.addEventListener('submit', (event) => {
+const CHAT_API_URL = 'http://localhost:8080/api/chat';
+let chatPending = false;
+
+function appendAssistantBubble(answerText, noteText) {
+  const assistant = document.createElement('div');
+  assistant.className = 'chat assistant';
+  assistant.innerHTML = '<div class="chat-avatar">AI</div><div><p></p><small></small></div>';
+  assistant.querySelector('p').textContent = answerText;
+  const small = assistant.querySelector('small');
+  if (noteText) small.textContent = noteText; else small.remove();
+  chatLog.appendChild(assistant);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return assistant;
+}
+
+chatForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const text = chatInput.value.trim();
-  if (!text) return;
+  if (!text || chatPending) return;
   const user = document.createElement('div');
   user.className = 'chat';
   user.innerHTML = `<div class="chat-avatar">我</div><div><p>${escapeHtml(text)}</p></div>`;
   chatLog.appendChild(user);
   chatInput.value = '';
-  setTimeout(() => {
-    const assistant = document.createElement('div');
-    assistant.className = 'chat assistant';
-    assistant.innerHTML = `<div class="chat-avatar">AI</div><div><p>已收到。正式版本中，我会结合你的年级、当前学情和错题记录，先定位你的卡点，再给你分步骤提示，而不是直接告诉你答案。</p><small>演示模式 · 尚未连接大模型</small></div>`;
-    chatLog.appendChild(assistant);
-    chatLog.scrollTop = chatLog.scrollHeight;
-  }, 450);
+  chatPending = true;
+  const pending = appendAssistantBubble('正在思考…', '正在连接后端服务…');
+  try {
+    const response = await fetch(CHAT_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ question: text })
+    });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const data = await response.json();
+    pending.querySelector('p').textContent = data.answer || '（后端返回内容为空，请稍后再试）';
+    pending.querySelector('small').textContent = '来自因材智学后端服务';
+  } catch (error) {
+    pending.querySelector('p').textContent = '暂时无法连接后端服务（localhost:8080）。请先启动 Spring Boot 后端（在 backend 目录运行 mvn spring-boot:run），启动成功后再重新发送你的问题。';
+    pending.querySelector('small').textContent = '连接失败 · 后端未启动或网络异常';
+  }
+  chatPending = false;
+  chatLog.scrollTop = chatLog.scrollHeight;
 });
 
 function escapeHtml(value) {

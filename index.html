@@ -321,16 +321,16 @@
 
       <section class="page" id="skills">
         <div class="page-intro">
-          <span class="tag">技能训练 Agent</span>
+          <span class="tag">自适应训练 Agent</span>
           <h3>不刷同一种题，训练强度跟着你的表现走</h3>
-          <p>Agent 读取你的学情、最近答题表现和错误类型。先给你一题去做，再根据你的真实表现判断哪个知识点需要补强、下一题该升难还是降难。</p>
+          <p>训练引擎读取你的学情、最近答题表现和错误类型。先给你一题去做，再根据真实表现决定下一题升难还是降难；AI 只在需要时补充错因分析。</p>
         </div>
 
         <div class="skill-overview panel">
           <div class="skill-topic">
             <span class="eyebrow">当前训练技能</span>
             <h3 id="skill-topic-title">等待第一次学情诊断</h3>
-            <p>当前掌握度 <b id="skill-mastery">--</b> · AI 会根据你的表现决定难度</p>
+            <p>当前掌握度 <b id="skill-mastery">--</b> · 自适应引擎会根据你的表现决定难度</p>
           </div>
           <div class="skill-decision">
             <span class="pill" id="skill-decision-pill">等待学情</span>
@@ -346,10 +346,10 @@
             </div>
             <div class="skill-question-box">
               <b>题目</b>
-              <p id="skill-question-text">完成首次学情诊断后，AI 会根据你的真实情况生成第一道训练题。</p>
+              <p id="skill-question-text">完成首次学情诊断后，点击“开始训练”，系统会立即从当前重点知识点题库选择第一道合适难度的题目。</p>
             </div>
             <div class="skill-options" id="skill-options">
-              <div class="empty-state"><b>等待 AI 出题</b><p>完成首次学情设置后开始训练。</p></div>
+              <div class="empty-state"><b>准备开始训练</b><p>点击“开始训练”后立即进入自适应题库。</p></div>
             </div>
             <div class="skill-feedback" id="skill-feedback">
               <span>AI 评估规则</span>
@@ -382,7 +382,7 @@
             </div>
             <div class="skill-rule-card">
               <b>Agent 会怎么决定难度？</b>
-              <p id="skill-rule-text">它会根据你的学情、最近答题表现和错误情况决定先从哪一级开始。</p>
+              <p id="skill-rule-text">先根据当前学情选择起始难度；连续答对会逐级升级，答错或标记“不会”会降低一级。</p>
             </div>
           </section>
         </div>
@@ -583,6 +583,6 @@
     </section>
   </div>
   <div class="toast" id="toast"></div>
-  <script src="app.js?v=20261007-fix6"></script>
+  <script src="app.js?v=20261007-fix7"></script>
 </body>
 </html>

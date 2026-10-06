@@ -88,6 +88,9 @@ function responseFor(agent) {
     let result = responseFor(body.agent);
     if (body.agent === 'skill') {
       skillCalls += 1;
+      if (skillCalls === 1) {
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
       if (skillCalls > 1) {
         result = {
           level: '综合题',
@@ -160,8 +163,13 @@ function responseFor(agent) {
   }
 
   await page.locator('.nav-item[data-page="skills"]').click();
-  await page.locator('#skill-next').click();
-  await page.waitForTimeout(250);
+  const generationPromise = page.locator('#skill-next').click();
+  await page.waitForTimeout(80);
+  if (!(await page.locator('#skill-generation').isVisible())) {
+    throw new Error('点击“开始训练”后没有显示 AI 出题状态，用户会误以为按钮无反应');
+  }
+  await generationPromise;
+  await page.waitForTimeout(50);
   if (!(await page.locator('#skill-options button').count())) {
     throw new Error('技能训练没有生成第一题');
   }

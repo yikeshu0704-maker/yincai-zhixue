@@ -3,6 +3,51 @@ const CHAT_API_URL = API_ORIGIN + '/api/chat';
 const AGENT_API_URL = API_ORIGIN + '/api/agent';
 const HEALTH_API_URL = API_ORIGIN + '/api/health';
 
+const PROFILE_KEY = 'yincaiProfile';
+const TASK_KEY = 'yincaiTasks';
+const STREAK_KEY = 'yincaiStreak';
+let profile = null;
+
+function loadProfile() {
+  try {
+    profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null');
+  } catch (error) {
+    profile = null;
+  }
+  return profile;
+}
+
+function saveProfile(nextProfile) {
+  profile = nextProfile;
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+function profileContext() {
+  if (!profile) return '当前没有学生学情数据。请先让学生完成首次学情设置。';
+  return [
+    '学生姓名：' + profile.name,
+    '年级：' + profile.grade,
+    '学科：' + profile.subject,
+    '最近一次考试分数：' + (profile.score || '未填写'),
+    '考试目标：' + (profile.goal || '未填写'),
+    '距离考试：' + (profile.days || '未填写') + ' 天',
+    '每天可学习：' + (profile.hours || '未填写') + ' 小时',
+    '学生自述当前情况：' + (profile.state || '未填写'),
+    '历史错题数量：' + Object.keys(mistakeData).length
+  ].join('\\n');
+}
+
+function openOnboarding() {
+  const modal = document.getElementById('onboarding-backdrop');
+  if (modal) modal.classList.add('show');
+}
+
+function closeOnboarding() {
+  const modal = document.getElementById('onboarding-backdrop');
+  if (modal) modal.classList.remove('show');
+}
+
+
 const navItems = [...document.querySelectorAll('.nav-item')];
 async function checkBackendHealth() {
   const status = document.getElementById('backend-status');
@@ -150,14 +195,7 @@ analysisAgentButton?.addEventListener('click', async () => {
   analysisAgentButton.textContent = 'AI分析中…';
   try {
     const answer = await callAgent('analysis',
-      '学生：林同学，初二数学。\n' +
-      '最近考试：72 分。\n' +
-      '每日可用学习时间：2 小时。\n' +
-      '一次函数掌握度：65%，基础尚可但综合题正确率偏低。\n' +
-      '几何证明掌握度：48%，错题中重复出现证明思路组织错误。\n' +
-      '三角形掌握度：90%。\n' +
-      '勾股定理掌握度：71%。\n' +
-      '请重新给出当前最重要的干预点和优先级，并说明依据。'
+      profileContext() + '\\n请根据这些真实学生信息，重新给出当前最重要的干预点和优先级，并说明依据。'
     );
     if (resultNode) resultNode.textContent = answer;
     showToast('学情 Agent 已完成真实诊断');
@@ -209,14 +247,10 @@ generatePlanButton?.addEventListener('click', async () => {
 
   try {
     const answer = await callAgent('plan',
-      '学生：初二数学。\n' +
-      '综合掌握度：72%。\n' +
-      '几何证明：48%，高优先级。\n' +
-      '一次函数：65%，综合应用偏弱。\n' +
-      '三角形：90%，基础稳定。\n' +
-      '考试目标：' + goal + '\n' +
-      '剩余天数：' + days + ' 天。\n' +
-      '每天学习时间：' + hours + ' 小时。'
+      profileContext() + '\\n' +
+      '本次规划输入的考试目标：' + goal + '\\n' +
+      '本次规划输入的剩余天数：' + days + ' 天。\\n' +
+      '本次规划输入的每天学习时间：' + hours + ' 小时。'
     );
     if (result) result.textContent = answer;
     if (status) status.textContent = '已由真实 Agent 生成';
@@ -228,48 +262,34 @@ generatePlanButton?.addEventListener('click', async () => {
   }
 });
 
-const mistakeData = {
-  function: {
-    title:'一次函数图像与解析式',
-    type:'条件提取错误',
-    question:'已知一次函数 y = 2x + b 经过点（1，5），求 b。你把 b 写成了 5。',
-    reason:'你把“点的纵坐标 y=5”和“截距 b”混在了一起，核心问题不是计算，而是没有把“点在函数图像上”转化成函数关系。',
-    knowledge:'一次函数的图像与解析式：点（x，y）在图像上 ⇔ y = kx + b。',
-    error:'概念理解 + 条件转化',
-    basic:'把点（2，7）代入 y = 2x + b，求 b。',
-    variant:'一次函数 y = -3x + b 经过点（2，1），求 b，并判断图像经过哪个象限。',
-    comprehensive:'给出一次函数图像上的两个点，求解析式并判断与另一条直线的交点。',
-  },
-  geometry: {
-    title:'三角形全等证明',
-    type:'证明结构错误',
-    question:'在 △ABC 中，AB = AC，AD 是 ∠A 的角平分线。证明：BD = CD。你只写了“等腰三角形两底角相等”，没有完成证明。',
-    reason:'你知道结论，但没有把目标 BD = CD 转化成“比较两个包含 BD、CD 的三角形”，导致证明链条断开。',
-    knowledge:'三角形全等判定：利用已知边、公共边和角平分线得到 SAS。',
-    error:'思路组织 + 证明书写',
-    basic:'在两个三角形中找出两边及其夹角相等的条件。',
-    variant:'增加一条辅助线后，判断应比较哪两个三角形，并写出全等依据。',
-    comprehensive:'完成含辅助线的几何综合证明，并说明每一步依据。',
-  },
-  pythagoras: {
-    title:'勾股定理基础应用',
-    type:'计算步骤不稳定',
-    question:'直角三角形两直角边分别为 6 和 8，求斜边。你第一次把 6+8 当成了斜边。',
-    reason:'你知道题目与直角三角形有关，但没有先识别“斜边对应最长边”，并正确调用平方关系。',
-    knowledge:'勾股定理：直角三角形中，两直角边平方和等于斜边平方。',
-    error:'公式调用 + 条件识别',
-    basic:'直角边为 5、12，求斜边。',
-    variant:'已知斜边和一条直角边，反求另一条直角边。',
-    comprehensive:'将勾股定理与面积、相似或坐标综合使用。',
-  }
-};
-
-let currentMistake = 'function';
+let mistakeData = {};
+let currentMistake = null;
 let reviewStep = 1;
 let selectedReviewAnswer = '';
 
+function getStoredMistakes() {
+  try {
+    return JSON.parse(localStorage.getItem('yincaiMistakes') || '[]');
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveMistakes() {
+  localStorage.setItem('yincaiMistakes', JSON.stringify(Object.values(mistakeData)));
+}
+
+function hydrateMistakes() {
+  const items = getStoredMistakes();
+  mistakeData = {};
+  items.forEach(item => { mistakeData[item.id] = item; });
+  currentMistake = Object.keys(mistakeData)[0] || null;
+}
+hydrateMistakes();
+
+
 function renderMistake() {
-  const data = mistakeData[currentMistake];
+  const data = currentMistake ? mistakeData[currentMistake] : null;
   const title = document.getElementById('mistake-title');
   const type = document.getElementById('mistake-type');
   const question = document.getElementById('mistake-question');
@@ -279,6 +299,19 @@ function renderMistake() {
   const next = document.getElementById('review-next');
   const pill = document.getElementById('mastery-pill');
   if (!title) return;
+  if (!data) {
+    title.textContent = '等待第一道错题';
+    document.getElementById('mistake-type').textContent = '暂无';
+    document.getElementById('mistake-question').textContent = '完成一道练习并出现真实错误后，这里会显示原题。';
+    document.getElementById('review-stage-title').textContent = '等待真实错题';
+    document.getElementById('review-stage-text').textContent = '先完成一道练习。系统会从你的实际错误开始复盘，而不是预置示例。';
+    document.getElementById('review-status').textContent = '暂无错题';
+    const aiButton = document.getElementById('ai-review-start');
+    if (aiButton) aiButton.disabled = true;
+    return;
+  }
+  const aiButton = document.getElementById('ai-review-start');
+  if (aiButton) aiButton.disabled = false;
   title.textContent = data.title;
   type.textContent = data.type;
   question.textContent = data.question;
@@ -464,6 +497,24 @@ document.getElementById('skill-submit')?.addEventListener('click', async () => {
   if(!selectedSkillOption){ showToast('先选择一个答案'); return; }
   const chosen = selectedSkillOption;
   const correct = chosen === q.answer;
+  if (!correct) {
+    const id = 'mistake-' + Date.now();
+    mistakeData[id] = {
+      id,
+      title: q.level + ' · ' + (profile?.subject || '技能训练'),
+      type: '技能训练错误',
+      question: q.question,
+      reason: '学生选择了 ' + chosen + '，正确答案为 ' + q.answer + '。',
+      knowledge: profile?.state || '等待 AI 根据错题进一步定位知识点。',
+      error: '答题错误',
+      basic: '围绕同一知识点做一道基础同类题。',
+      variant: '改变条件后再做一道变式题。',
+      comprehensive: '完成一道综合应用题并解释思路。',
+      createdAt: new Date().toLocaleString()
+    };
+    saveMistakes();
+    currentMistake = id;
+  }
   dynamicSkillQuestion = null;
   evaluateSkillAnswer(correct);
   selectedSkillOption='';
@@ -580,13 +631,13 @@ function parseSkillQuestion(raw) {
 
 async function requestDynamicSkillQuestion(lastCorrect) {
   const answer = await callAgent('skill',
-    '训练知识点：一次函数。\n' +
-    '基础掌握度：82%。\n' +
-    '综合应用掌握度：' + skillMastery + '%。\n' +
-    '当前训练难度：' + skillQuestions[skillLevelIndex].level + '。\n' +
-    '连续答对：' + skillStreak + '。\n' +
-    '上一题是否答对：' + (lastCorrect ? '是' : '否') + '。\n' +
-    '请根据这些表现动态决定下一题难度并生成新题。'
+    profileContext() + '\\n' +
+    '当前训练知识点：' + (profile?.subject || '当前学科') + '。\\n' +
+    '当前技能掌握度：' + (profile?.skillMastery || '尚未测得') + '。\\n' +
+    '当前训练难度：' + skillQuestions[skillLevelIndex].level + '。\\n' +
+    '连续答对：' + skillStreak + '。\\n' +
+    '上一题是否答对：' + (lastCorrect ? '是' : '否') + '。\\n' +
+    '请根据这些表现动态决定下一题难度，并生成一道适合当前学生的新题。'
   );
 
   const parsed = parseSkillQuestion(answer);
@@ -615,11 +666,11 @@ async function requestDynamicSkillQuestion(lastCorrect) {
 async function requestMotivationAgent() {
   const complete = document.getElementById('motivation-complete')?.textContent || '80%';
   const reason = await callAgent('motivation',
-    '今日完成度：' + complete + '\n' +
-    '连续学习：5 天。\n' +
-    '一次函数：65% → 82%。\n' +
-    '待复盘错题：3 道。\n' +
-    '今天主要高优先级任务：错题复盘。\n' +
+    profileContext() + '\\n' +
+    '今日完成度：' + complete + '\\n' +
+    '连续学习：' + (Number(localStorage.getItem(STREAK_KEY) || 0)) + ' 天。\\n' +
+    '待复盘错题：' + Object.keys(mistakeData).length + ' 道。\\n' +
+    '今天主要高优先级任务：根据当前学生情况判断。\\n' +
     '请判断今天应该继续、维持还是收尾，并给出最小必要任务。'
   );
   motivationTitle.textContent = reason.split('\n')[0] || reason;
@@ -649,3 +700,207 @@ document.getElementById('reduce-load')?.addEventListener('click', async () => {
     showToast('学习负荷分析失败');
   }
 });
+
+
+function parseProfileStateForDisplay() {
+  const state = profile?.state || '';
+  const evidence = document.getElementById('evidence-state');
+  if (evidence) evidence.textContent = state ? state.slice(0, 70) + (state.length > 70 ? '…' : '') : '未填写';
+}
+
+function renderProfile() {
+  const hasProfile = !!profile;
+  const avatar = document.getElementById('student-avatar');
+  const miniName = document.getElementById('student-name-mini');
+  const miniSubject = document.getElementById('student-subject-mini');
+  const profileAvatar = document.getElementById('profile-avatar');
+  const profileTitle = document.getElementById('profile-title');
+  const profileSummary = document.getElementById('profile-summary');
+  const dashboardTitle = document.getElementById('dashboard-hero-title');
+  const dashboardCopy = document.getElementById('dashboard-hero-copy');
+  const dashboardScore = document.getElementById('dashboard-score');
+  const scoreNote = document.getElementById('dashboard-score-note');
+  const aiTitle = document.getElementById('dashboard-ai-title');
+  const aiCopy = document.getElementById('dashboard-ai-copy');
+  const planEvidence = document.getElementById('planner-evidence-text');
+
+  if (!hasProfile) {
+    if (avatar) avatar.textContent = '?';
+    if (miniName) miniName.textContent = '首次使用';
+    if (miniSubject) miniSubject.textContent = '请先完成学情设置';
+    if (profileAvatar) profileAvatar.textContent = '?';
+    if (profileTitle) profileTitle.textContent = '尚未建立学习画像';
+    if (profileSummary) profileSummary.textContent = '请先填写你的基本信息、考试目标和当前学习情况。';
+    if (dashboardTitle) dashboardTitle.innerHTML = '先建立你的学习画像';
+    if (dashboardCopy) dashboardCopy.textContent = '第一次使用时，先告诉 AI 你的年级、学科、目标和当前学习情况，系统才能真正因材施教。';
+    if (dashboardScore) dashboardScore.textContent = '--';
+    if (scoreNote) scoreNote.textContent = '等待你的第一次学情输入';
+    if (aiTitle) aiTitle.textContent = '完成首次学情设置后，我会给你第一条建议。';
+    if (aiCopy) aiCopy.textContent = '你的学习数据将从真实填写、测试结果和后续答题记录开始累积。';
+    if (planEvidence) planEvidence.textContent = '完成首次学情设置后，这里会显示 AI 可使用的学生信息。';
+    const mastery = document.getElementById('mastery-list');
+    if (mastery) mastery.innerHTML = '<div class="empty-state"><b>等待第一次学情诊断</b><p>填写当前学习情况后，AI 会在这里生成你的知识点掌握地图。</p></div>';
+    return;
+  }
+
+  const initial = (profile.name || '?').slice(0, 1);
+  const summary = [profile.grade, profile.subject].filter(Boolean).join(' · ');
+  if (avatar) avatar.textContent = initial;
+  if (miniName) miniName.textContent = profile.name;
+  if (miniSubject) miniSubject.textContent = summary || '已建立画像';
+  if (profileAvatar) profileAvatar.textContent = initial;
+  if (profileTitle) profileTitle.textContent = profile.name + ' · ' + (profile.grade || '') + (profile.subject ? profile.subject : '');
+  if (profileSummary) profileSummary.innerHTML = '最近考试 <b>' + (profile.score || '未填写') + '</b> 分 · 每日可用学习时间 <b>' + (profile.hours || '未填写') + ' 小时</b> · 目标 <b>' + (profile.goal || '未填写') + '</b>';
+  if (dashboardTitle) dashboardTitle.innerHTML = '欢迎回来，<em>' + escapeHtml(profile.name) + '</em>';
+  if (dashboardCopy) dashboardCopy.textContent = '这是你的第一次真实学习周期。先完成学情诊断，再让 Agent 决定接下来学什么。';
+  if (dashboardScore) dashboardScore.textContent = profile.score ? profile.score + '分' : '--';
+  if (scoreNote) scoreNote.textContent = profile.score ? '最近一次考试' : '暂无考试数据';
+  if (aiTitle) aiTitle.textContent = '下一步：让 AI 先读懂你的学习情况。';
+  if (aiCopy) aiCopy.textContent = '完成“AI重新诊断”后，系统会根据你的填写结果生成第一份学习建议。';
+  if (planEvidence) planEvidence.textContent = profile.grade + ' · ' + profile.subject + ' · 目标 ' + profile.goal + ' · ' + profile.days + ' 天 · 每天 ' + profile.hours + ' 小时';
+  document.getElementById('evidence-profile').textContent = profile.grade + ' · ' + profile.subject;
+  document.getElementById('evidence-score').textContent = profile.score ? profile.score + ' 分' : '未填写';
+  document.getElementById('evidence-goal').textContent = profile.goal || '未填写';
+  document.getElementById('evidence-time').textContent = (profile.days || '未填写') + ' 天 · 每天 ' + (profile.hours || '未填写') + ' 小时';
+  parseProfileStateForDisplay();
+}
+
+function bindOnboarding() {
+  const form = document.getElementById('onboarding-form');
+  const next = document.getElementById('onboarding-next');
+  const back = document.getElementById('onboarding-back');
+  const pages = [...document.querySelectorAll('[data-onboarding-page]')];
+  const step = document.getElementById('onboarding-step');
+  const title = document.getElementById('onboarding-title');
+  const copy = document.getElementById('onboarding-copy');
+  let page = 1;
+
+  function showStep(n) {
+    page = n;
+    pages.forEach(x => x.classList.toggle('active', Number(x.dataset.onboardingPage) === n));
+    if (step) step.textContent = '第 ' + n + ' / 2 步';
+    if (title) title.textContent = n === 1 ? '先告诉我，你是谁' : '再告诉我，你想实现什么';
+    if (copy) copy.textContent = n === 1
+      ? '这些信息会成为你的第一份学习画像。可以随时修改。'
+      : '没有预设答案，全部由你自己填写。系统会用这些信息生成第一次学习路径。';
+  }
+
+  next?.addEventListener('click', () => {
+    const name = document.getElementById('profile-name')?.value.trim();
+    const grade = document.getElementById('profile-grade')?.value.trim();
+    const subject = document.getElementById('profile-subject')?.value.trim();
+    if (!name || !grade || !subject) {
+      showToast('先把姓名、年级和学科填完整');
+      return;
+    }
+    showStep(2);
+  });
+
+  back?.addEventListener('click', () => showStep(1));
+
+  form?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const nextProfile = {
+      name: document.getElementById('profile-name')?.value.trim(),
+      grade: document.getElementById('profile-grade')?.value.trim(),
+      subject: document.getElementById('profile-subject')?.value.trim(),
+      score: document.getElementById('profile-score')?.value.trim(),
+      goal: document.getElementById('profile-goal')?.value.trim(),
+      days: document.getElementById('profile-days')?.value.trim(),
+      hours: document.getElementById('profile-hours')?.value.trim(),
+      state: document.getElementById('profile-state')?.value.trim(),
+      createdAt: new Date().toISOString()
+    };
+    saveProfile(nextProfile);
+    renderProfile();
+    closeOnboarding();
+    showToast('学习画像已建立');
+    showPage('analysis');
+  });
+
+  document.getElementById('edit-profile-btn')?.addEventListener('click', () => {
+    if (profile) {
+      for (const [id, key] of [
+        ['profile-name','name'],['profile-grade','grade'],['profile-subject','subject'],
+        ['profile-score','score'],['profile-goal','goal'],['profile-days','days'],
+        ['profile-hours','hours'],['profile-state','state']
+      ]) {
+        const el = document.getElementById(id);
+        if (el) el.value = profile[key] || '';
+      }
+    }
+    openOnboarding();
+  });
+  document.getElementById('dashboard-profile-btn')?.addEventListener('click', openOnboarding);
+}
+
+function renderMistakeListFromStore() {
+  const list = document.getElementById('mistake-list');
+  if (!list) return;
+  const items = Object.values(mistakeData);
+  if (!items.length) {
+    list.innerHTML = '<div class="empty-state"><b>你的错题本还是空的</b><p>先去技能训练或答题。发生真实错误后，错题会自动进入这里。</p><button class="ghost-btn" data-go="skills">去做第一道题 →</button></div>';
+    list.querySelector('[data-go]')?.addEventListener('click', () => showPage('skills'));
+    return;
+  }
+  list.innerHTML = items.map(item => '<button class="mistake-item" data-mistake="' + item.id + '"><div><span class="pill danger">待复盘</span><small>' + escapeHtml(item.createdAt || '') + '</small></div><b>' + escapeHtml(item.title) + '</b><span>' + escapeHtml(item.type) + '</span></button>').join('');
+  list.querySelectorAll('.mistake-item').forEach(item => item.addEventListener('click', () => {
+    currentMistake = item.dataset.mistake;
+    reviewStep = 1;
+    renderMistake();
+  }));
+}
+
+loadProfile();
+renderProfile();
+renderMistakeListFromStore();
+renderMistake();
+
+if (!profile) {
+  setTimeout(openOnboarding, 120);
+}
+
+
+const PROFILE_KEY = 'yincaiProfile';
+const TASK_KEY = 'yincaiTasks';
+const STREAK_KEY = 'yincaiStreak';
+let profile = null;
+
+function loadProfile() {
+  try {
+    profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null');
+  } catch (error) {
+    profile = null;
+  }
+  return profile;
+}
+
+function saveProfile(nextProfile) {
+  profile = nextProfile;
+  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+function profileContext() {
+  if (!profile) return '当前没有学生学情数据。请先让学生完成首次学情设置。';
+  return [
+    '学生姓名：' + profile.name,
+    '年级：' + profile.grade,
+    '学科：' + profile.subject,
+    '最近一次考试分数：' + (profile.score || '未填写'),
+    '考试目标：' + (profile.goal || '未填写'),
+    '距离考试：' + (profile.days || '未填写') + ' 天',
+    '每天可学习：' + (profile.hours || '未填写') + ' 小时',
+    '学生自述当前情况：' + (profile.state || '未填写'),
+    '历史错题数量：' + Object.keys(mistakeData).length
+  ].join('\\n');
+}
+
+function openOnboarding() {
+  const modal = document.getElementById('onboarding-backdrop');
+  if (modal) modal.classList.add('show');
+}
+
+function closeOnboarding() {
+  const modal = document.getElementById('onboarding-backdrop');
+  if (modal) modal.classList.remove('show');
+}

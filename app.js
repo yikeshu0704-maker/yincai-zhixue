@@ -916,6 +916,7 @@ function renderMistakeListFromStore() {
 }
 
 loadProfile();
+bindOnboarding();
 renderProfile();
 renderMistakeListFromStore();
 renderMistake();

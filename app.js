@@ -941,21 +941,51 @@ function isDuplicateQuestion(question) {
   return !!key && skillHistory.some(item => normalizeQuestionKey(item.question) === key);
 }
 
+function importedJuniorHighBank() {
+  const raw = Array.isArray(window.YINCaiJuniorHighMathBank) ? window.YINCaiJuniorHighMathBank : [];
+  return raw.map(q => ({
+    ...q,
+    level: Math.max(0, Math.min(3, Number(q.difficulty || 1) - 1)),
+    label: ['基础题','中等题','综合题','变式题'][Math.max(0, Math.min(3, Number(q.difficulty || 1) - 1))],
+    source: Array.isArray(q.source) ? q.source : []
+  }));
+}
+
+function topicMatchesQuestion(topic, q) {
+  const t = String(topic || '');
+  const hay = [q.chapter, ...(q.knowledgePoints || []), q.question].join(' ');
+  if (t === '一次函数') return /一次函数/.test(hay);
+  if (t === '反比例函数') return /反比例函数/.test(hay);
+  if (t === '二次函数') return /二次函数/.test(hay);
+  if (t === '一元二次方程') return /一元二次方程/.test(hay);
+  if (t === '一元一次方程') return /一元一次方程/.test(hay);
+  if (t === '二元一次方程组') return /二元一次方程组/.test(hay);
+  if (t === '不等式') return /不等式/.test(hay);
+  if (t === '因式分解') return /因式分解/.test(hay);
+  if (t === '分式') return /分式/.test(hay);
+  if (t === '三角形') return /三角形|全等/.test(hay);
+  if (t === '几何证明') return /三角形|全等|勾股|四边形|相似|圆|几何|证明/.test(hay);
+  return true;
+}
+
 function selectLocalQuestion() {
   const topic = currentSkillTopic();
-  const bank = skillQuestionBank[topic] || genericQuestionBank;
+  const imported = importedJuniorHighBank();
+  const topicBank = imported.filter(q => topicMatchesQuestion(topic, q));
+  const localBank = skillQuestionBank[topic] || genericQuestionBank;
+  const bank = topicBank.length ? topicBank : (imported.length ? imported : localBank);
   const target = Math.max(0, Math.min(3, skillLevelIndex));
+
   const unused = bank.filter(q => q.level === target && !isDuplicateQuestion(q.question));
   if (unused.length) return unused[Math.floor(Math.random() * unused.length)];
 
-  const nearby = bank.filter(q => q.level === target && !isDuplicateQuestion(q.question));
-  if (nearby.length) return nearby[0];
-
   const anyUnused = bank.filter(q => !isDuplicateQuestion(q.question));
-  if (anyUnused.length) return anyUnused.sort((a,b)=>Math.abs(a.level-target)-Math.abs(b.level-target))[0];
+  if (anyUnused.length) {
+    return anyUnused.sort((a,b) => Math.abs(a.level - target) - Math.abs(b.level - target))[0];
+  }
 
-  // 题库全部做完后允许从最高优先级题目重练，但会明确标记为复习，而不是新题。
-  const review = bank.find(q => q.level === target) || bank[0] || genericQuestionBank[0];
+  // 全部做过后允许复习，但明确标记为复习题。
+  const review = bank.find(q => q.level === target) || bank[0] || localBank[0] || genericQuestionBank[0];
   return { ...review, reviewOnly: true };
 }
 

@@ -507,3 +507,19 @@ button { cursor: pointer; }
 .diagnosis-result-next span{display:block;font-size:10px;color:var(--muted);margin-bottom:6px}
 .diagnosis-result-next b{font-size:12px;line-height:1.6}
 @media(max-width:900px){.diagnosis-result-card{grid-template-columns:1fr}.diagnosis-result-priorities{align-content:flex-start}}
+
+.skill-history-panel{margin-top:12px}
+.skill-history-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.skill-history-item{border:1px solid var(--line);background:#fff;border-radius:11px;padding:11px;text-align:left;cursor:pointer}
+.skill-history-item:hover{border-color:#c8cdfd;background:#fafaff}
+.skill-history-item>div{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:6px}
+.skill-history-item b{display:block;font-size:11px;line-height:1.55;color:var(--text)}
+.skill-history-item small{font-size:9px;color:var(--muted)}
+.skill-history-item>span{display:block;margin-top:7px;font-size:10px;font-weight:800}
+.history-correct{color:var(--success)}
+.history-wrong{color:var(--danger)}
+.plan-generating{min-height:120px;display:grid;place-items:center;text-align:center}
+.agent-error-detail{margin-top:8px}
+.agent-error-detail summary{cursor:pointer;font-size:10px;color:var(--accent);font-weight:700}
+.agent-error-detail p{margin:6px 0 0;padding:8px;border-radius:8px;background:#fff4f4;color:#a6494e;line-height:1.5}
+@media(max-width:800px){.skill-history-list{grid-template-columns:1fr}}

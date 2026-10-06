@@ -122,6 +122,33 @@ function renderTutorStage() {
 document.getElementById('tutor-next')?.addEventListener('click', () => {
   tutorStage = (tutorStage + 1) % tutorStages.length;
   renderTutorStage();
+
+const analysisAgentButton = document.getElementById('run-analysis-agent');
+analysisAgentButton?.addEventListener('click', async () => {
+  const resultNode = document.getElementById('analysis-agent-result');
+  analysisAgentButton.disabled = true;
+  analysisAgentButton.textContent = 'AI分析中…';
+  try {
+    const answer = await callAgent('analysis',
+      '学生：林同学，初二数学。\n' +
+      '最近考试：72 分。\n' +
+      '每日可用学习时间：2 小时。\n' +
+      '一次函数掌握度：65%，基础尚可但综合题正确率偏低。\n' +
+      '几何证明掌握度：48%，错题中重复出现证明思路组织错误。\n' +
+      '三角形掌握度：90%。\n' +
+      '勾股定理掌握度：71%。\n' +
+      '请重新给出当前最重要的干预点和优先级，并说明依据。'
+    );
+    if (resultNode) resultNode.textContent = answer;
+    showToast('学情 Agent 已完成真实诊断');
+  } catch (error) {
+    if (resultNode) resultNode.textContent = error.message;
+    showToast('学情分析失败');
+  } finally {
+    analysisAgentButton.disabled = false;
+    analysisAgentButton.textContent = 'AI重新诊断';
+  }
+});
 });
 document.getElementById('tutor-hint')?.addEventListener('click', () => {
   const s = tutorStages[tutorStage];
@@ -147,7 +174,7 @@ const planDays = document.getElementById('plan-days');
 const planHours = document.getElementById('plan-hours');
 const generatePlanButton = document.getElementById('generate-plan');
 
-generatePlanButton?.addEventListener('click', () => {
+generatePlanButton?.addEventListener('click', async () => {
   const days = Math.max(1, Number(planDays.value) || 30);
   const hours = Math.max(0.5, Number(planHours.value) || 2);
   const minutes = Math.round(hours * 60);
@@ -155,10 +182,31 @@ generatePlanButton?.addEventListener('click', () => {
   const title = document.getElementById('plan-result-title');
   const budget = document.getElementById('plan-budget');
   const status = document.getElementById('plan-status');
+  const result = document.getElementById('plan-agent-result');
   if (title) title.textContent = days + ' 天 · ' + (goal.length > 28 ? goal.slice(0, 28) + '…' : goal);
   if (budget) budget.textContent = minutes + ' 分钟';
-  if (status) status.textContent = '刚刚重新规划';
-  showToast('AI 已根据你的时间约束重排学习路径');
+  if (status) status.textContent = 'AI 正在重新规划…';
+  if (result) result.textContent = '正在根据当前学情、考试目标和时间预算生成新的学习路径…';
+
+  try {
+    const answer = await callAgent('plan',
+      '学生：初二数学。\n' +
+      '综合掌握度：72%。\n' +
+      '几何证明：48%，高优先级。\n' +
+      '一次函数：65%，综合应用偏弱。\n' +
+      '三角形：90%，基础稳定。\n' +
+      '考试目标：' + goal + '\n' +
+      '剩余天数：' + days + ' 天。\n' +
+      '每天学习时间：' + hours + ' 小时。'
+    );
+    if (result) result.textContent = answer;
+    if (status) status.textContent = '已由真实 Agent 生成';
+    showToast('学习路径 Agent 已完成重新规划');
+  } catch (error) {
+    if (result) result.textContent = error.message;
+    if (status) status.textContent = '暂时无法调用 Agent';
+    showToast('学习路径生成失败');
+  }
 });
 
 const mistakeData = {
@@ -300,9 +348,10 @@ let skillQuestionNo = 1;
 let skillStreak = 0;
 let skillMastery = 65;
 let selectedSkillOption = '';
+let dynamicSkillQuestion = null;
 
 function renderSkillQuestion() {
-  const q = skillQuestions[skillLevelIndex];
+  const q = dynamicSkillQuestion || skillQuestions[skillLevelIndex];
   const levelTitle = document.getElementById('skill-level-title');
   const levelPill = document.getElementById('skill-level-pill');
   const question = document.getElementById('skill-question-text');
@@ -375,22 +424,36 @@ function evaluateSkillAnswer(correct) {
   }
 }
 
-document.getElementById('skill-submit')?.addEventListener('click', () => {
-  const q=skillQuestions[skillLevelIndex];
+document.getElementById('skill-submit')?.addEventListener('click', async () => {
+  const q = dynamicSkillQuestion || skillQuestions[skillLevelIndex];
   if(!selectedSkillOption){ showToast('先选择一个答案'); return; }
-  const correct=selectedSkillOption===q.answer;
+  const chosen = selectedSkillOption;
+  const correct = chosen === q.answer;
+  dynamicSkillQuestion = null;
   evaluateSkillAnswer(correct);
   selectedSkillOption='';
+  try {
+    await requestDynamicSkillQuestion(correct);
+  } catch (error) {
+    const feedback = document.getElementById('skill-feedback');
+    if (feedback) feedback.innerHTML = '<span>AI 出题暂时失败</span><p>' + escapeHtml(error.message) + '，先继续使用本地题库。</p>';
+  }
 });
 
-document.getElementById('skill-skip')?.addEventListener('click', () => {
+document.getElementById('skill-skip')?.addEventListener('click', async () => {
   skillStreak=0;
   skillMastery=Math.max(0, skillMastery-3);
   if(skillLevelIndex>0) skillLevelIndex -= 1;
   skillQuestionNo += 1;
   selectedSkillOption='';
+  dynamicSkillQuestion = null;
   showToast('已记录“不会”，下一题会降低难度');
   renderSkillQuestion();
+  try {
+    await requestDynamicSkillQuestion(false);
+  } catch (error) {
+    showToast('AI 出题失败，保留本地题库');
+  }
 });
 
 renderSkillQuestion();
@@ -418,4 +481,150 @@ document.getElementById('reduce-load')?.addEventListener('click', () => {
   motivationReason.textContent='你已经保持 5 天连续学习。降低今天的任务量不会破坏计划，系统会把未完成内容重新排入后续路径。';
   motivationStatus.textContent='已降低负担';
   showToast('已把低优先级任务顺延');
+});
+
+
+const AGENT_API_URL = 'http://localhost:8080/api/agent';
+
+async function callAgent(agent, context) {
+  const response = await fetch(AGENT_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ agent, context })
+  });
+
+  let data = null;
+  try {
+    data = await response.json();
+  } catch (error) {
+    throw new Error('Agent 返回了无法解析的内容');
+  }
+
+  if (!response.ok) {
+    throw new Error(data?.result || 'Agent 请求失败（HTTP ' + response.status + '）');
+  }
+
+  if (!data?.result) {
+    throw new Error('Agent 返回内容为空');
+  }
+
+  return data.result;
+}
+
+const aiReviewStart = document.getElementById('ai-review-start');
+aiReviewStart?.addEventListener('click', async () => {
+  const data = mistakeData[currentMistake];
+  aiReviewStart.disabled = true;
+  aiReviewStart.textContent = 'AI分析中…';
+  try {
+    const answer = await callAgent('mistake',
+      '错题标题：' + data.title + '\n' +
+      '原错题：' + data.question + '\n' +
+      '原始错误原因线索：' + data.reason + '\n' +
+      '知识点：' + data.knowledge + '\n' +
+      '错误类型：' + data.error + '\n' +
+      '当前复盘阶段：第 ' + reviewStep + '/5。\n' +
+      '请给出本阶段最应该关注的内容和下一步训练建议。'
+    );
+    document.getElementById('review-stage-text').textContent = answer;
+    showToast('错题复盘 Agent 已完成真实分析');
+  } catch (error) {
+    document.getElementById('review-stage-text').textContent = error.message;
+    showToast('错题分析失败');
+  } finally {
+    aiReviewStart.disabled = false;
+    aiReviewStart.textContent = 'AI分析这道错题';
+  }
+});
+
+function parseSkillQuestion(raw) {
+  let parsed = null;
+  try {
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      parsed = JSON.parse(raw.slice(start, end + 1));
+    }
+  } catch (error) {
+    parsed = null;
+  }
+
+  if (!parsed || !parsed.question || !parsed.options || !parsed.answer) return null;
+  if (!['A','B','C','D'].every(key => parsed.options[key])) return null;
+
+  return {
+    level: parsed.level || '综合题',
+    label: parsed.label || '综合应用',
+    question: parsed.question,
+    options: parsed.options,
+    answer: parsed.answer,
+    explanation: parsed.explanation || ''
+  };
+}
+
+async function requestDynamicSkillQuestion(lastCorrect) {
+  const answer = await callAgent('skill',
+    '训练知识点：一次函数。\n' +
+    '基础掌握度：82%。\n' +
+    '综合应用掌握度：' + skillMastery + '%。\n' +
+    '当前训练难度：' + skillQuestions[skillLevelIndex].level + '。\n' +
+    '连续答对：' + skillStreak + '。\n' +
+    '上一题是否答对：' + (lastCorrect ? '是' : '否') + '。\n' +
+    '请根据这些表现动态决定下一题难度并生成新题。'
+  );
+
+  const parsed = parseSkillQuestion(answer);
+  const feedback = document.getElementById('skill-feedback');
+
+  if (!parsed) {
+    if (feedback) {
+      feedback.className = 'skill-feedback';
+      feedback.innerHTML = '<span>AI 已参与判断难度</span><p>' + escapeHtml(answer) + '</p>';
+    }
+    return;
+  }
+
+  dynamicSkillQuestion = parsed;
+  const levelMap = {'基础题':0,'中等题':1,'综合题':2,'变式题':3};
+  if (levelMap[parsed.level] !== undefined) skillLevelIndex = levelMap[parsed.level];
+  renderSkillQuestion();
+
+  if (feedback) {
+    feedback.className = 'skill-feedback correct';
+    feedback.innerHTML = '<span>AI 已生成下一题</span><p>' +
+      escapeHtml(parsed.explanation || '题目难度已经根据你的答题表现重新调整。') + '</p>';
+  }
+}
+
+async function requestMotivationAgent() {
+  const complete = document.getElementById('motivation-complete')?.textContent || '80%';
+  const reason = await callAgent('motivation',
+    '今日完成度：' + complete + '\n' +
+    '连续学习：5 天。\n' +
+    '一次函数：65% → 82%。\n' +
+    '待复盘错题：3 道。\n' +
+    '今天主要高优先级任务：错题复盘。\n' +
+    '请判断今天应该继续、维持还是收尾，并给出最小必要任务。'
+  );
+  motivationTitle.textContent = reason.split('\n')[0] || reason;
+  motivationReason.textContent = reason;
+  motivationStatus.textContent = reason.startsWith('建议：收尾') ? '建议收尾' : 'AI已重新评估';
+}
+
+document.getElementById('finish-one-task')?.addEventListener('click', async () => {
+  try {
+    await requestMotivationAgent();
+    showToast('学习激励 Agent 已重新评估负担');
+  } catch (error) {
+    showToast('学习负荷分析失败');
+  }
+});
+
+document.getElementById('reduce-load')?.addEventListener('click', async () => {
+  try {
+    await requestMotivationAgent();
+    showToast('AI 已重新安排今天的负担');
+  } catch (error) {
+    showToast('学习负荷分析失败');
+  }
 });

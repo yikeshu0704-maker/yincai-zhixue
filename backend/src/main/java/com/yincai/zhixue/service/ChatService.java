@@ -100,30 +100,60 @@ public class ChatService {
     public String chatWithJsonPrompt(String systemPrompt, String userPrompt) {
         validateConfiguration();
 
-        try {
-            var body = objectMapper.createObjectNode();
-            body.put("model", model);
-            body.put("temperature", 0.2);
-            body.put("max_tokens", 4000);
+        RuntimeException lastError = null;
 
-            var responseFormat = body.putObject("response_format");
-            responseFormat.put("type", "json_object");
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                var body = objectMapper.createObjectNode();
+                body.put("model", model);
+                body.put("temperature", 0.2);
+                body.put("reasoning_effort", "minimal");
+                body.put("max_tokens", 3000);
 
-            var messages = body.putArray("messages");
+                var responseFormat = body.putObject("response_format");
+                responseFormat.put("type", "json_object");
 
-            var system = messages.addObject();
-            system.put("role", "system");
-            system.put("content", systemPrompt + "\n\n请严格输出合法 json 对象，不要 Markdown，不要代码块。");
+                var messages = body.putArray("messages");
 
-            var user = messages.addObject();
-            user.put("role", "user");
-            user.put("content", userPrompt);
+                var system = messages.addObject();
+                system.put("role", "system");
+                system.put("content",
+                        systemPrompt
+                                + "\n\nReturn only one complete valid JSON object."
+                                + "\nDo not output Markdown fences or explanatory text.");
 
-            return sendRequest(body);
+                var user = messages.addObject();
+                user.put("role", "user");
+                user.put("content", userPrompt
+                        + "\n\nReturn one complete JSON object only.");
 
-        } catch (IllegalArgumentException ex) {
-            throw new RuntimeException("MODEL_BASE_URL 配置无效", ex);
+                String answer = sendRequest(body);
+
+                if (answer != null && !answer.isBlank()) {
+                    try {
+                        objectMapper.readTree(answer);
+                        return answer.trim();
+                    } catch (Exception parseError) {
+                        lastError = new RuntimeException(
+                                "模型返回的 JSON 无法解析（第 " + attempt + " 次）"
+                        );
+                    }
+                } else {
+                    lastError = new RuntimeException(
+                            "模型返回内容为空（第 " + attempt + " 次）"
+                    );
+                }
+            } catch (RuntimeException ex) {
+                lastError = ex;
+            }
         }
+
+        throw new RuntimeException(
+                lastError == null
+                        ? "结构化 Agent 返回无效 JSON"
+                        : "结构化 Agent 调用失败：" + lastError.getMessage(),
+                lastError
+        );
     }
 
     public String chatWithPrompt(String systemPrompt, String userPrompt) {
@@ -178,6 +208,10 @@ public class ChatService {
                     .asText("");
 
             if (answer == null || answer.isBlank()) {
+                String finishReason = root.path("choices").path(0).path("finish_reason").asText("");
+                if (!finishReason.isBlank()) {
+                    throw new RuntimeException("模型返回内容为空，finish_reason=" + finishReason);
+                }
                 throw new RuntimeException("模型返回内容为空");
             }
 

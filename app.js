@@ -297,7 +297,6 @@ function renderDiagnosisResult(data) {
   profile.diagnosedAt = new Date().toISOString();
   saveProfile(profile);
 
-  const diagnosisState = document.getElementById('profile-diagnosis-state');
   const diagnosisCard = document.getElementById('diagnosis-result-card');
   if (diagnosisCard) diagnosisCard.hidden = !profile.diagnosis;
   const diagnosisState = document.getElementById('profile-diagnosis-state');

@@ -320,30 +320,33 @@ function renderSkillQuestion() {
 }
 
 function evaluateSkillAnswer(correct) {
-  const feedback=document.getElementById('skill-feedback');
   const resultTitle=document.getElementById('skill-result-title');
+  const nextLevel=skillLevelIndex;
+  let feedbackTitle='';
+  let feedbackText='';
   if(correct){
     skillStreak += 1;
     skillMastery = Math.min(100, skillMastery + 8);
     if(skillStreak >= 2 && skillLevelIndex < 3) skillLevelIndex += 1;
-    if(feedback){
-      feedback.className='skill-feedback correct';
-      feedback.innerHTML='<span>答对了 · Agent 已更新学情</span><p>这次表现支持你进入更高难度。当前掌握度提升到 ' + skillMastery + '%。</p>';
-    }
+    feedbackTitle='答对了 · Agent 已更新学情';
+    feedbackText='这次表现支持你进入更高难度。当前掌握度提升到 ' + skillMastery + '%。';
     if(resultTitle) resultTitle.textContent='表现稳定，难度已上调';
   }else{
     skillStreak = 0;
     skillMastery = Math.max(0, skillMastery - 5);
     if(skillLevelIndex > 0) skillLevelIndex -= 1;
-    if(feedback){
-      feedback.className='skill-feedback wrong';
-      feedback.innerHTML='<span>这次先降一个难度</span><p>不要继续堆更难的题。Agent 判断你需要先补强当前能力，再重新尝试。</p>';
-    }
+    feedbackTitle='这次先降一个难度';
+    feedbackText='不要继续堆更难的题。Agent 判断你需要先补强当前能力，再重新尝试。';
     if(resultTitle) resultTitle.textContent='出现卡点，Agent 已降低难度';
   }
   document.getElementById('skill-streak').textContent=skillStreak;
   skillQuestionNo += 1;
   renderSkillQuestion();
+  const feedback=document.getElementById('skill-feedback');
+  if(feedback){
+    feedback.className=correct ? 'skill-feedback correct' : 'skill-feedback wrong';
+    feedback.innerHTML='<span>' + feedbackTitle + '</span><p>' + feedbackText + '</p>';
+  }
 }
 
 document.getElementById('skill-submit')?.addEventListener('click', () => {

@@ -45,3 +45,18 @@ AI 仍用于学情增强、错因分析、AI答疑和训练策略增强；题库
 上游项目：https://github.com/math-eval/TAL-SCQ5K
 
 本目录中的字段转换、筛选逻辑和因材智学集成代码由本项目维护。
+
+## CJEval 初中数学补充题库
+
+本项目为非商业、比赛/公益教育用途，补充接入 SmileWHC/CJEval 的“初中数学”数据。CJEval README 标明数据仅限学术研究用途，禁止商业使用，数据采用 CC BY-NC-SA 4.0；本仓库保留来源字段 `sourceDataset`、`sourceLicense` 与 `source`，便于追溯。
+
+本次补充 2008 道：
+- 单选题：951 道
+- 填空题：950 道
+- 解答题：107 道
+
+与已有 TAL-SCQ5K-CN 的 992 道初中数学题合并后，前端训练题库共约 3000 道。
+
+来源：
+- https://github.com/SmileWHC/CJEval
+- CJEval README / 数据目录：data/CJEval_data/（初中数学）

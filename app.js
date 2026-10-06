@@ -42,7 +42,7 @@ function profileContext() {
     '历史错题数量：' + Object.keys(mistakeData).length,
     '最近一次 AI 学情诊断：' + (profile.diagnosis ? JSON.stringify(profile.diagnosis) : '尚未诊断'),
     '当前重点训练：' + (profile.primaryTopic || '尚未确定')
-  ].join('\\n');
+  ].join('['基础题','中等题','困难题','拔尖题']n');
 }
 
 function openOnboarding() {
@@ -174,7 +174,7 @@ chatForm.addEventListener('submit', async (event) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        question: profile ? (profileContext() + '\\n学生当前问题：' + text) : text,
+        question: profile ? (profileContext() + '['基础题','中等题','困难题','拔尖题']n学生当前问题：' + text) : text,
         imageData: sentImage?.data || null,
         imageMimeType: sentImage?.mimeType || null
       })
@@ -266,7 +266,7 @@ function parseAgentJson(raw) {
 
       if (inString) {
         if (escaped) escaped = false;
-        else if (char === '\\') escaped = true;
+        else if (char === '['基础题','中等题','困难题','拔尖题']') escaped = true;
         else if (char === '"') inString = false;
         continue;
       }
@@ -464,7 +464,7 @@ async function runAnalysisAgent() {
   try {
     const answer = await callAgent(
       'analysis',
-      profileContext() + '\\n请在不改变学生事实的前提下，增强这份第一版画像；仅补充有依据的优先级和证据。'
+      profileContext() + '['基础题','中等题','困难题','拔尖题']n请在不改变学生事实的前提下，增强这份第一版画像；仅补充有依据的优先级和证据。'
     );
     const data = parseAgentJson(answer);
     if (data?.priorities?.length) {
@@ -581,7 +581,7 @@ function buildLocalPlan(days, minutes, goal) {
 
   const stages = [
     { week: '第1阶段', focus: first + ' · 基础补强', goal: '补齐核心概念与典型方法', minutesPerDay: Math.round(daily * 0.3), reason: '先处理当前最高优先级问题。' },
-    { week: '第2阶段', focus: first + ' · 综合应用', goal: '从基础题过渡到中等和综合题', minutesPerDay: Math.round(daily * 0.3), reason: '减少重复基础题，进入真正薄弱的应用环节。' },
+    { week: '第2阶段', focus: first + ' · 综合应用', goal: '从基础题过渡到中等、困难和拔尖题', minutesPerDay: Math.round(daily * 0.3), reason: '减少重复基础题，进入真正薄弱的应用环节。' },
     { week: '第3阶段', focus: second + ' · 专项训练', goal: '集中解决第二优先级知识点', minutesPerDay: Math.round(daily * 0.25), reason: '第一重点稳定后继续补强第二重点。' },
     { week: '第4阶段', focus: '综合训练 + 错题复习', goal: '检验迁移能力并回收重复错误', minutesPerDay: Math.round(daily * 0.15), reason: '最后阶段用于整合与掌握检验。' }
   ].slice(0, stageCount);
@@ -871,20 +871,20 @@ const skillQuestionBank = {
     {id:'yf-e2',level:0,label:'基础题',question:'一次函数 y = -3x + 5 中，x = 0 时 y 的值是多少？',options:{A:'-3',B:'0',C:'3',D:'5'},answer:'D',explanation:'当 x=0 时，y=b=5。'},
     {id:'yf-m1',level:1,label:'中等题',question:'一次函数 y = 2x + b 经过点（1，4），求 b。',options:{A:'1',B:'2',C:'3',D:'4'},answer:'B',explanation:'把点（1，4）代入解析式。'},
     {id:'yf-m2',level:1,label:'中等题',question:'直线 y = kx - 2 经过点（3，4），若 x 增加 2，则 y 增加多少？',options:{A:'2',B:'4',C:'6',D:'8'},answer:'B',explanation:'先求 k=2，再用 Δy=kΔx。'},
-    {id:'yf-c1',level:2,label:'综合题',question:'一次函数 y = kx + b 经过 A(1,3)、B(3,7)，求其 x 轴截距。',options:{A:'-1/2',B:'1/2',C:'2',D:'3'},answer:'A',explanation:'由两点求出 k=2、b=1，再令 y=0。'},
-    {id:'yf-c2',level:2,label:'综合题',question:'某直线与 x 轴交于（2，0），与 y 轴交于（0，-4）。若点 P 在该直线上且横坐标为 3，求 P 的纵坐标。',options:{A:'-2',B:'-1',C:'1',D:'2'},answer:'D',explanation:'先根据两个截距确定解析式，再代入 x=3。'},
-    {id:'yf-v1',level:3,label:'变式题',question:'某一次函数经过点 A(2,0)，且图象与两坐标轴围成的三角形面积为4。若 x 轴截距固定为2，求所有可能的 y 轴截距。',options:{A:'1',B:'2',C:'±2',D:'4'},answer:'C',explanation:'保持一次函数核心技能，但从求参数改为由几何面积反推参数并处理两种可能。'},
-    {id:'yf-v2',level:3,label:'变式题',question:'一次函数图象经过点（1，2），把“求 y 轴截距”改成“已知 y 轴截距为 -1，反求 x 轴截距”。若斜率为 3，答案是多少？',options:{A:'1/3',B:'2/3',C:'1',D:'-1/3'},answer:'A',explanation:'改变了解题入口，从正向求参数改为利用截距条件反推另一截距。'}
+    {id:'yf-c1',level:2,label:'困难题',question:'一次函数 y = kx + b 经过 A(1,3)、B(3,7)，求其 x 轴截距。',options:{A:'-1/2',B:'1/2',C:'2',D:'3'},answer:'A',explanation:'由两点求出 k=2、b=1，再令 y=0。'},
+    {id:'yf-c2',level:2,label:'困难题',question:'某直线与 x 轴交于（2，0），与 y 轴交于（0，-4）。若点 P 在该直线上且横坐标为 3，求 P 的纵坐标。',options:{A:'-2',B:'-1',C:'1',D:'2'},answer:'D',explanation:'先根据两个截距确定解析式，再代入 x=3。'},
+    {id:'yf-v1',level:3,label:'拔尖题',question:'某一次函数经过点 A(2,0)，且图象与两坐标轴围成的三角形面积为4。若 x 轴截距固定为2，求所有可能的 y 轴截距。',options:{A:'1',B:'2',C:'±2',D:'4'},answer:'C',explanation:'保持一次函数核心技能，但从求参数改为由几何面积反推参数并处理两种可能。'},
+    {id:'yf-v2',level:3,label:'拔尖题',question:'一次函数图象经过点（1，2），把“求 y 轴截距”改成“已知 y 轴截距为 -1，反求 x 轴截距”。若斜率为 3，答案是多少？',options:{A:'1/3',B:'2/3',C:'1',D:'-1/3'},answer:'A',explanation:'改变了解题入口，从正向求参数改为利用截距条件反推另一截距。'}
   ],
   '几何证明': [
     {id:'geo-e1',level:0,label:'基础题',question:'在 △ABC 中，AB = AC，∠A = 40°。则 ∠B 与 ∠C 的大小关系是（）。',options:{A:'∠B>∠C',B:'∠B<∠C',C:'∠B=∠C',D:'无法确定'},answer:'C',explanation:'等腰三角形的两个底角相等。'},
     {id:'geo-e2',level:0,label:'基础题',question:'若两个三角形有两边分别相等，且这两边的夹角也相等，可以用哪种方法判断它们全等？',options:{A:'SSS',B:'SAS',C:'ASA',D:'AAS'},answer:'B',explanation:'两边及其夹角对应相等是 SAS。'},
     {id:'geo-m1',level:1,label:'中等题',question:'在 △ABC 中，AB = AC，AD 是 ∠A 的角平分线。证明 BD = CD 时，除 AB=AC 和 ∠BAD=∠CAD 外，还需要利用（）。',options:{A:'BD=CD',B:'BC=BC',C:'AD=AD',D:'∠B=∠C'},answer:'C',explanation:'比较 △ABD 与 △ACD，还需要公共边 AD=AD。'},
     {id:'geo-m2',level:1,label:'中等题',question:'证明两三角形全等后，若要推出一组对应边相等，应使用的结论是（）。',options:{A:'对应角相等',B:'对应边相等',C:'内角和相等',D:'面积一定不同'},answer:'B',explanation:'全等三角形的对应边、对应角分别相等。'},
-    {id:'geo-c1',level:2,label:'综合题',question:'在等腰三角形 ABC 中，AB=AC，D、E 分别在 AB、AC 上，且 AD=AE。要证明 BD=CE，最自然的比较对象是（）。',options:{A:'△ABD 与 △ACE',B:'△ABC 与 △ADE',C:'△ABD 与 △ABC',D:'△ADE 与 △ABC'},answer:'A',explanation:'目标是 BD 与 CE，应该寻找分别包含这两条线段的两个三角形。'},
-    {id:'geo-c2',level:2,label:'综合题',question:'在 △ABC 中，AB=AC，AD⊥BC。若要证明 BD=CD，除等腰条件外，AD⊥BC 最直接提供的条件是（）。',options:{A:'AB=BC',B:'∠ADB=∠ADC',C:'∠A=90°',D:'BD=DC'},answer:'B',explanation:'垂直关系使两个直角对应相等，再结合公共边和等腰条件比较两个三角形。'},
-    {id:'geo-v1',level:3,label:'变式题',question:'把“AB=AC，AD 是角平分线，证明 BD=CD”改成反向判断：已知 AB=AC，且 BD=CD。若 D 在 BC 上，想证明 AD 是 ∠A 的角平分线，应寻找哪类新的三角形全等依据？',options:{A:'只证明 AD=BC',B:'比较 △ABD 与 △ACD',C:'只证明 ∠B=∠C',D:'比较 △ABC 与 △BCD'},answer:'B',explanation:'这是逆向迁移：由目标角平分线反推需要证明的对应角，再比较同一对三角形。'},
-    {id:'geo-v2',level:3,label:'变式题',question:'在证明题中，原目标是“证明 BD=CD”。如果题目额外给出 ∠BAD=∠CAD，但没有给 AB=AC，你应该优先寻找哪一种替代条件？',options:{A:'AD=AD',B:'AB=AC 之外的另一个独立边角条件',C:'BD=CD',D:'BC=BC 直接作为结论'},answer:'B',explanation:'改变条件后不能机械照搬原证明，需要重新寻找足以判定两三角形全等的独立条件。'}
+    {id:'geo-c1',level:2,label:'困难题',question:'在等腰三角形 ABC 中，AB=AC，D、E 分别在 AB、AC 上，且 AD=AE。要证明 BD=CE，最自然的比较对象是（）。',options:{A:'△ABD 与 △ACE',B:'△ABC 与 △ADE',C:'△ABD 与 △ABC',D:'△ADE 与 △ABC'},answer:'A',explanation:'目标是 BD 与 CE，应该寻找分别包含这两条线段的两个三角形。'},
+    {id:'geo-c2',level:2,label:'困难题',question:'在 △ABC 中，AB=AC，AD⊥BC。若要证明 BD=CD，除等腰条件外，AD⊥BC 最直接提供的条件是（）。',options:{A:'AB=BC',B:'∠ADB=∠ADC',C:'∠A=90°',D:'BD=DC'},answer:'B',explanation:'垂直关系使两个直角对应相等，再结合公共边和等腰条件比较两个三角形。'},
+    {id:'geo-v1',level:3,label:'拔尖题',question:'把“AB=AC，AD 是角平分线，证明 BD=CD”改成反向判断：已知 AB=AC，且 BD=CD。若 D 在 BC 上，想证明 AD 是 ∠A 的角平分线，应寻找哪类新的三角形全等依据？',options:{A:'只证明 AD=BC',B:'比较 △ABD 与 △ACD',C:'只证明 ∠B=∠C',D:'比较 △ABC 与 △BCD'},answer:'B',explanation:'这是逆向迁移：由目标角平分线反推需要证明的对应角，再比较同一对三角形。'},
+    {id:'geo-v2',level:3,label:'拔尖题',question:'在证明题中，原目标是“证明 BD=CD”。如果题目额外给出 ∠BAD=∠CAD，但没有给 AB=AC，你应该优先寻找哪一种替代条件？',options:{A:'AD=AD',B:'AB=AC 之外的另一个独立边角条件',C:'BD=CD',D:'BC=BC 直接作为结论'},answer:'B',explanation:'改变条件后不能机械照搬原证明，需要重新寻找足以判定两三角形全等的独立条件。'}
   ]
 };
 
@@ -941,12 +941,17 @@ function isDuplicateQuestion(question) {
   return !!key && skillHistory.some(item => normalizeQuestionKey(item.question) === key);
 }
 
+function difficultyLabel(level, suffix = true) {
+  const labels = ['基础题','中等题','困难题','拔尖题'];
+  return labels[Math.max(0, Math.min(3, Number(level) || 0))] + (suffix ? '' : '');
+}
+
 function importedJuniorHighBank() {
   const raw = Array.isArray(window.YINCaiJuniorHighMathBank) ? window.YINCaiJuniorHighMathBank : [];
   return raw.map(q => ({
     ...q,
     level: Math.max(0, Math.min(3, Number(q.difficulty || 1) - 1)),
-    label: ['基础题','中等题','综合题','变式题'][Math.max(0, Math.min(3, Number(q.difficulty || 1) - 1))],
+    label: difficultyLabel(Math.max(0, Math.min(3, Number(q.difficulty || 1) - 1)), false),
     source: Array.isArray(q.source) ? q.source : []
   }));
 }
@@ -1070,6 +1075,8 @@ function renderSkillQuestion() {
   const topic = currentSkillTopic();
   const topicTitle = document.getElementById('skill-topic-title');
   if (topicTitle) topicTitle.textContent = topic + ' · 自适应训练';
+  const bankCount = document.getElementById('skill-bank-count');
+  if (bankCount) bankCount.textContent = (Array.isArray(window.YINCaiJuniorHighMathBank) ? window.YINCaiJuniorHighMathBank.length : 0) + ' 道初中题';
 
   if(!q){
     document.getElementById('skill-level-title').textContent='等待生成';
@@ -1090,15 +1097,15 @@ function renderSkillQuestion() {
     return;
   }
 
-  document.getElementById('skill-level-title').textContent=q.level===0?'基础题':q.level===1?'中等题':q.level===2?'综合题':q.level===3?'变式题':q.label||'训练题';
+  document.getElementById('skill-level-title').textContent=difficultyLabel(q.level):q.label||'训练题';
   document.getElementById('skill-level-pill').textContent=q.label||'AI训练';
   document.getElementById('skill-question-text').textContent=q.question||'';
   document.getElementById('skill-question-no').textContent=String(skillQuestionNo);
-  document.getElementById('skill-current-level').textContent=(q.level===0?'基础题':q.level===1?'中等题':q.level===2?'综合题':q.level===3?'变式题':q.level)||q.label||'训练题';
+  document.getElementById('skill-current-level').textContent=(difficultyLabel(q.level):q.level)||q.label||'训练题';
   document.getElementById('skill-mastery').textContent=skillAttempts ? skillMastery+'%' : '--';
   document.getElementById('skill-decision-pill').textContent=skillAnswered?'本题已完成':skillLoading?'AI正在出题':'自适应训练中';
   document.getElementById('skill-decision-text').textContent=skillAnswered?'当前题目已保留。你可以回看后再进入下一题。':skillLoading?'正在根据你的学情和历史表现选择题目。':'下一题会根据这道题的答题表现升难或降难。';
-  document.getElementById('skill-next-level').textContent=skillAnswered?'下一题将综合最新表现':(['基础题','中等题','综合题','变式题'][Math.min(3,skillLevelIndex+1)]||'保持当前难度');
+  document.getElementById('skill-next-level').textContent=skillAnswered?'下一题将综合最新表现':(['基础题','中等题','困难题','拔尖题'][Math.min(3,skillLevelIndex+1)]||'保持当前难度');
 
   options.innerHTML=Object.entries(q.options||{}).map(([k,v])=>'<button type="button" data-skill-option="'+escapeHtml(k)+'"'+(skillAnswered||skillLoading?' disabled':'')+'>'+escapeHtml(k+'. '+v)+'</button>').join('');
   if(!skillAnswered&&!skillLoading){
@@ -1231,10 +1238,10 @@ async function analyzeSkillMistake(q,chosen,mistakeId){
 
   try {
     const raw=await callAgent('mistake',
-      profileContext()+'\\n刚刚技能训练题：'+q.question+
-      '\\n正确答案：'+q.answer+
-      '\\n学生选择：'+chosen+
-      '\\n请返回结构化 JSON，字段：reason,knowledge,errorType,evidence,basic,variant,comprehensive,masteryCheck。'
+      profileContext()+'['基础题','中等题','困难题','拔尖题']n刚刚技能训练题：'+q.question+
+      '['基础题','中等题','困难题','拔尖题']n正确答案：'+q.answer+
+      '['基础题','中等题','困难题','拔尖题']n学生选择：'+chosen+
+      '['基础题','中等题','困难题','拔尖题']n请返回结构化 JSON，字段：reason,knowledge,errorType,evidence,basic,variant,comprehensive,masteryCheck。'
     );
     const data=parseAgentJson(raw);
     if(mistakeData[mistakeId]){
@@ -1453,11 +1460,11 @@ refreshFirstUseStats();
 async function requestMotivationAgent() {
   const complete = document.getElementById('motivation-complete')?.textContent || '80%';
   const reason = await callAgent('motivation',
-    profileContext() + '\\n' +
-    '今日完成度：' + complete + '\\n' +
-    '连续学习：' + (Number(localStorage.getItem(STREAK_KEY) || 0)) + ' 天。\\n' +
-    '待复盘错题：' + Object.keys(mistakeData).length + ' 道。\\n' +
-    '今天主要高优先级任务：根据当前学生情况判断。\\n' +
+    profileContext() + '['基础题','中等题','困难题','拔尖题']n' +
+    '今日完成度：' + complete + '['基础题','中等题','困难题','拔尖题']n' +
+    '连续学习：' + (Number(localStorage.getItem(STREAK_KEY) || 0)) + ' 天。['基础题','中等题','困难题','拔尖题']n' +
+    '待复盘错题：' + Object.keys(mistakeData).length + ' 道。['基础题','中等题','困难题','拔尖题']n' +
+    '今天主要高优先级任务：根据当前学生情况判断。['基础题','中等题','困难题','拔尖题']n' +
     '请判断今天应该继续、维持还是收尾，并给出最小必要任务。'
   );
   motivationTitle.textContent = reason.split('\n')[0] || reason;

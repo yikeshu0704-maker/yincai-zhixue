@@ -357,6 +357,7 @@
             </div>
             <div class="skill-actions">
               <button class="ghost-btn" id="skill-skip" disabled>这题我不会</button>
+              <button class="ghost-btn" id="skill-next" hidden>下一题</button>
               <button class="primary-btn" id="skill-submit" disabled>提交答案</button>
             </div>
           </section>
@@ -383,8 +384,15 @@
           <div><span class="eyebrow">本轮训练结果</span><h3 id="skill-result-title">准备开始</h3></div>
           <div class="training-stats">
             <div><span>连续答对</span><b id="skill-streak">0</b></div>
-            <div><span>当前难度</span><b id="skill-current-level">综合题</b></div>
-            <div><span>预计下一步</span><b id="skill-next-level">继续综合</b></div>
+            <div><span>当前难度</span><b id="skill-current-level">未开始</b></div>
+            <div><span>预计下一步</span><b id="skill-next-level">等待表现</b></div>
+          </div>
+        </section>
+
+        <section class="panel skill-history-panel">
+          <div class="panel-head"><h3>本轮题目记录</h3><span class="pill">可回看</span></div>
+          <div class="skill-history-list" id="skill-history-list">
+            <div class="empty-state"><b>还没有完成的题目</b><p>提交一道题后，这里会保留题目与作答结果，方便回看。</p></div>
           </div>
         </section>
       </section>

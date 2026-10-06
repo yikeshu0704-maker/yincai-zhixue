@@ -190,6 +190,11 @@ document.getElementById('tutor-next')?.addEventListener('click', () => {
 
 const analysisAgentButton = document.getElementById('run-analysis-agent');
 analysisAgentButton?.addEventListener('click', async () => {
+  if (!profile) {
+    openOnboarding();
+    showToast('先完成首次学情设置');
+    return;
+  }
   const resultNode = document.getElementById('analysis-agent-result');
   analysisAgentButton.disabled = true;
   analysisAgentButton.textContent = 'AI分析中…';
@@ -232,10 +237,15 @@ const planHours = document.getElementById('plan-hours');
 const generatePlanButton = document.getElementById('generate-plan');
 
 generatePlanButton?.addEventListener('click', async () => {
-  const days = Math.max(1, Number(planDays.value) || 30);
-  const hours = Math.max(0.5, Number(planHours.value) || 2);
+  if (!profile) {
+    openOnboarding();
+    showToast('先完成首次学情设置');
+    return;
+  }
+  const days = Math.max(1, Number(planDays.value || profile.days) || 1);
+  const hours = Math.max(0.5, Number(planHours.value || profile.hours) || 0.5);
   const minutes = Math.round(hours * 60);
-  const goal = planGoal.value.trim() || '完成阶段性考试目标';
+  const goal = planGoal.value.trim() || profile.goal || '完成阶段性考试目标';
   const title = document.getElementById('plan-result-title');
   const budget = document.getElementById('plan-budget');
   const status = document.getElementById('plan-status');
@@ -414,12 +424,11 @@ const skillQuestions = [
 let skillLevelIndex = 2;
 let skillQuestionNo = 1;
 let skillStreak = 0;
-let skillMastery = 65;
+let skillMastery = 0;
 let selectedSkillOption = '';
 let dynamicSkillQuestion = null;
 
 function renderSkillQuestion() {
-  const q = dynamicSkillQuestion || skillQuestions[skillLevelIndex];
   const levelTitle = document.getElementById('skill-level-title');
   const levelPill = document.getElementById('skill-level-pill');
   const question = document.getElementById('skill-question-text');
@@ -430,23 +439,41 @@ function renderSkillQuestion() {
   const mastery = document.getElementById('skill-mastery');
   const decisionPill = document.getElementById('skill-decision-pill');
   const decisionText = document.getElementById('skill-decision-text');
+  const submit = document.getElementById('skill-submit');
+  const skip = document.getElementById('skill-skip');
   if (!levelTitle || !options) return;
+
+  const q = dynamicSkillQuestion || (profile ? skillQuestions[skillLevelIndex] : null);
+  if (!profile || !q) {
+    levelTitle.textContent = '等待生成';
+    levelPill.textContent = '未开始';
+    question.textContent = '完成首次学情设置和 AI 诊断后，系统会根据你的真实情况生成第一道训练题。';
+    no.textContent = '0';
+    if (current) current.textContent = '未开始';
+    if (next) next.textContent = '等待诊断';
+    if (mastery) mastery.textContent = '--';
+    if (decisionPill) decisionPill.textContent = '等待学情';
+    if (decisionText) decisionText.textContent = '先完成学情设置，Agent 才会决定训练技能和难度。';
+    options.innerHTML = '<div class="empty-state"><b>等待 AI 出题</b><p>完成首次学情设置后开始训练。</p></div>';
+    if (submit) submit.disabled = true;
+    if (skip) skip.disabled = true;
+    return;
+  }
+
   levelTitle.textContent = q.level;
   levelPill.textContent = q.label;
   question.textContent = q.question;
   no.textContent = skillQuestionNo;
-  current.textContent = q.level;
-  mastery.textContent = skillMastery + '%';
-  decisionPill.textContent = '正在训练' + q.level;
-  decisionText.textContent = skillLevelIndex <= 1
-    ? '当前表现提示需要补强基础，再回到更高难度。'
-    : skillLevelIndex === 2
-      ? '基础题已稳定，当前需要把概念迁移到综合问题。'
-      : '综合题表现良好，Agent 开始测试更陌生的变式情境。';
+  if (current) current.textContent = q.level;
+  if (mastery) mastery.textContent = skillMastery ? skillMastery + '%' : '--';
+  if (decisionPill) decisionPill.textContent = '正在训练 · ' + q.level;
+  if (decisionText) decisionText.textContent = skillStreak >= 2
+    ? '连续答对后，Agent 正在尝试更高难度。'
+    : 'Agent 会根据你的最近表现动态决定下一题。';
   const nextLabel = skillLevelIndex < 3 ? skillQuestions[skillLevelIndex + 1].level : '维持变式';
-  next.textContent = skillLevelIndex < 3 ? nextLabel : '维持变式';
-  options.innerHTML = Object.entries(q.options)
-    .map(([key,value]) => '<button data-skill-option="' + key + '">' + key + '. ' + value.replace(/^\w\.\s*/, '') + '</button>')
+  if (next) next.textContent = nextLabel;
+  options.innerHTML = Object.entries(q.options || {})
+    .map(([key,value]) => '<button data-skill-option="' + key + '">' + key + '. ' + escapeHtml(String(value).replace(/^\w\.\s*/, '')) + '</button>')
     .join('');
   options.querySelectorAll('[data-skill-option]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -455,6 +482,9 @@ function renderSkillQuestion() {
       btn.classList.add('selected');
     });
   });
+  if (submit) submit.disabled = false;
+  if (skip) skip.disabled = false;
+
   const feedback=document.getElementById('skill-feedback');
   if(feedback){
     feedback.className='skill-feedback';
@@ -483,6 +513,10 @@ function evaluateSkillAnswer(correct) {
     if(resultTitle) resultTitle.textContent='出现卡点，Agent 已降低难度';
   }
   document.getElementById('skill-streak').textContent=skillStreak;
+  if (profile) {
+    profile.skillMastery = skillMastery;
+    saveProfile(profile);
+  }
   skillQuestionNo += 1;
   renderSkillQuestion();
   const feedback=document.getElementById('skill-feedback');
@@ -514,6 +548,8 @@ document.getElementById('skill-submit')?.addEventListener('click', async () => {
     };
     saveMistakes();
     currentMistake = id;
+    renderMistakeListFromStore();
+
   }
   dynamicSkillQuestion = null;
   evaluateSkillAnswer(correct);
@@ -549,6 +585,9 @@ const motivationBar=document.getElementById('motivation-complete-bar');
 const motivationTitle=document.getElementById('motivation-title');
 const motivationReason=document.getElementById('motivation-reason');
 const motivationStatus=document.getElementById('motivation-status');
+const loadBar = document.getElementById('load-bar');
+const loadValue = document.getElementById('load-value');
+const loadStatus = document.getElementById('load-status');
 
 
 
@@ -663,6 +702,23 @@ async function requestDynamicSkillQuestion(lastCorrect) {
   }
 }
 
+function refreshFirstUseStats() {
+  const mistakesCount = Object.keys(mistakeData).length;
+  const mistakeNode = document.getElementById('mistake-count');
+  if (mistakeNode) mistakeNode.textContent = mistakesCount + ' 道';
+  const scoreNode = document.getElementById('motivation-mastery');
+  if (scoreNode) scoreNode.textContent = profile?.skillMastery ? profile.skillMastery + '%' : '--';
+  const streak = Number(localStorage.getItem(STREAK_KEY) || 0);
+  const streakNode = document.getElementById('motivation-streak');
+  if (streakNode) streakNode.textContent = streak + ' 天';
+  const bar = document.getElementById('motivation-complete-bar');
+  if (bar) bar.style.width = '0%';
+  if (loadBar) loadBar.style.width = mistakesCount ? '30%' : '0%';
+  if (loadValue) loadValue.textContent = mistakesCount ? '30%' : '--';
+  if (loadStatus) loadStatus.textContent = mistakesCount ? '开始关注' : '等待学习';
+}
+refreshFirstUseStats();
+
 async function requestMotivationAgent() {
   const complete = document.getElementById('motivation-complete')?.textContent || '80%';
   const reason = await callAgent('motivation',
@@ -763,6 +819,14 @@ function renderProfile() {
   document.getElementById('evidence-goal').textContent = profile.goal || '未填写';
   document.getElementById('evidence-time').textContent = (profile.days || '未填写') + ' 天 · 每天 ' + (profile.hours || '未填写') + ' 小时';
   parseProfileStateForDisplay();
+  const planGoalInput = document.getElementById('plan-goal');
+  const planDaysInput = document.getElementById('plan-days');
+  const planHoursInput = document.getElementById('plan-hours');
+  if (planGoalInput && profile.goal) planGoalInput.value = profile.goal;
+  if (planDaysInput && profile.days) planDaysInput.value = profile.days;
+  if (planHoursInput && profile.hours) planHoursInput.value = profile.hours;
+  const skillTopic = document.getElementById('skill-topic-title');
+  if (skillTopic) skillTopic.textContent = profile.subject + ' · 等待 AI 诊断';
 }
 
 function bindOnboarding() {
@@ -855,8 +919,16 @@ loadProfile();
 renderProfile();
 renderMistakeListFromStore();
 renderMistake();
+renderSkillQuestion();
 
-if (!profile) {
+if (profile) {
+  skillMastery = Number(profile.skillMastery || 0);
+  setTimeout(() => {
+    if (!dynamicSkillQuestion) {
+      requestDynamicSkillQuestion(false).catch(() => {});
+    }
+  }, 250);
+} else {
   setTimeout(openOnboarding, 120);
 }
 

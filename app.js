@@ -233,12 +233,63 @@ document.getElementById('tutor-next')?.addEventListener('click', () => {
 const analysisAgentButton = document.getElementById('run-analysis-agent');
 
 function parseAgentJson(raw) {
-  const start = raw.indexOf('{');
-  const end = raw.lastIndexOf('}');
-  if (start < 0 || end <= start) throw new Error('Agent 返回的结构化结果无法解析，请重试。');
-  try { return JSON.parse(raw.slice(start, end + 1)); }
-  catch (error) { throw new Error('Agent 返回的结构化结果无法解析，请重试。'); }
+  if (raw && typeof raw === 'object') return raw;
+  if (typeof raw !== 'string') {
+    throw new Error('Agent 返回内容不是可解析的 JSON。');
+  }
+
+  const variants = [];
+  const original = raw.trim();
+  variants.push(original);
+  variants.push(original.replace(/^\u0060\u0060\u0060json\s*/i, '').replace(/\s*\u0060\u0060\u0060$/i, '').trim());
+
+  try {
+    const quoted = JSON.parse(original);
+    if (typeof quoted === 'string') variants.push(quoted.trim());
+  } catch (_) {}
+
+  for (const candidate of variants) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch (_) {}
+
+    const start = candidate.indexOf('{');
+    if (start < 0) continue;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < candidate.length; i++) {
+      const char = candidate[i];
+
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === '\\') escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+
+      if (char === '"') inString = true;
+      else if (char === '{') depth++;
+      else if (char === '}') {
+        depth--;
+        if (depth === 0) {
+          const fragment = candidate.slice(start, i + 1);
+          try {
+            const parsed = JSON.parse(fragment);
+            if (parsed && typeof parsed === 'object') return parsed;
+          } catch (_) {}
+          break;
+        }
+      }
+    }
+  }
+
+  throw new Error('Agent 返回的结构化结果无法解析。请重试；如果连续失败，检查后端是否已重启。');
 }
+
 
 function renderDiagnosisResult(data) {
   profile.diagnosis = data;
@@ -246,6 +297,9 @@ function renderDiagnosisResult(data) {
   profile.diagnosedAt = new Date().toISOString();
   saveProfile(profile);
 
+  const diagnosisState = document.getElementById('profile-diagnosis-state');
+  const diagnosisCard = document.getElementById('diagnosis-result-card');
+  if (diagnosisCard) diagnosisCard.hidden = !profile.diagnosis;
   const diagnosisState = document.getElementById('profile-diagnosis-state');
   if (diagnosisState) {
     diagnosisState.textContent = profile.primaryTopic
@@ -282,6 +336,27 @@ function renderDiagnosisResult(data) {
         '<strong>' + (mastery === null ? '待诊断' : mastery + '%') + '</strong>' +
       '</div>';
     }).join('') : '<div class="empty-state"><b>AI 暂时无法形成知识点地图</b><p>请先补充更多测试结果或答题记录。</p></div>';
+  }
+
+  const resultCard = document.getElementById('diagnosis-result-card');
+  const resultTitle = document.getElementById('diagnosis-result-title');
+  const resultSummary = document.getElementById('diagnosis-result-summary');
+  const resultPriorities = document.getElementById('diagnosis-result-priorities');
+  const resultNext = document.getElementById('diagnosis-result-next');
+
+  if (resultCard) resultCard.hidden = false;
+  if (resultTitle) {
+    resultTitle.textContent = (data.priorities || []).slice(0, 2).map(item => item.name).filter(Boolean).join(' + ') || '已建立第一版学习画像';
+  }
+  if (resultSummary) resultSummary.textContent = data.summary || 'AI 已完成第一版学习判断。';
+  if (resultNext) resultNext.textContent = data.recommendedAction || '进入学习路径规划。';
+  if (resultPriorities) {
+    resultPriorities.innerHTML = (data.priorities || []).slice(0, 4).map(item =>
+      '<span class="diagnosis-chip">' +
+      escapeHtml(item.name || '知识点') + ' · ' +
+      escapeHtml(item.priority || '待诊断') +
+      '</span>'
+    ).join('');
   }
 
   const skillTitle = document.getElementById('skill-topic-title');

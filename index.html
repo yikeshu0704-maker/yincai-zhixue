@@ -160,14 +160,78 @@
       </section>
 
       <section class="page" id="plan">
-        <div class="page-intro"><span class="tag">学习路径</span><h3>你的 7 天个性化学习路径</h3><p>根据当前学情、目标和每日可用时间动态安排任务。</p></div>
-        <div class="plan-banner panel"><div><b>考试目标：期中 90+</b><span>剩余 21 天 · 每天约 2 小时</span></div><button class="ghost-btn" data-toast="接入 AI 后将根据实时学情自动重排计划">让 AI 调整计划</button></div>
-        <div class="timeline">
-          <article class="timeline-item current"><div class="day">Day 1</div><div class="timeline-body"><h3>几何证明基础</h3><p>复习证明格式 → 典型例题 → 3 道基础题</p><span>预计 65 分钟</span></div></article>
-          <article class="timeline-item"><div class="day">Day 2</div><div class="timeline-body"><h3>辅助线思路训练</h3><p>认识常见辅助线 → 分步提示 → 4 道变式题</p><span>预计 70 分钟</span></div></article>
-          <article class="timeline-item"><div class="day">Day 3</div><div class="timeline-body"><h3>一次函数综合应用</h3><p>图像与解析式综合题 → 错题回收</p><span>预计 60 分钟</span></div></article>
-          <article class="timeline-item"><div class="day">Day 4–7</div><div class="timeline-body"><h3>综合训练与复盘</h3><p>根据前 3 天表现，AI 自动调整任务难度和复习顺序。</p><span>动态生成</span></div></article>
+        <div class="page-intro">
+          <span class="tag">学习路径规划 Agent</span>
+          <h3>让 AI 把“我要提分”变成每天能执行的计划</h3>
+          <p>输入考试目标、剩余时间和每天可用学习时间，Agent 会把当前学情、薄弱知识点与时间预算一起计算，再生成阶段目标、每日任务和动态调整规则。</p>
         </div>
+
+        <div class="planner-grid">
+          <section class="panel planner-input">
+            <div class="panel-head"><h3>告诉 AI 你的学习约束</h3><span class="pill">路径规划</span></div>
+            <label class="field-label">你的目标</label>
+            <textarea id="plan-goal" class="planner-textarea">我还有30天期中考试，每天只能学习2小时，希望数学达到90分以上。</textarea>
+            <div class="field-grid">
+              <label><span>剩余天数</span><input id="plan-days" type="number" value="30" min="1" max="180"></label>
+              <label><span>每天学习</span><input id="plan-hours" type="number" value="2" min="0.5" max="12" step="0.5"></label>
+            </div>
+            <button class="primary-btn full-btn" id="generate-plan">生成我的学习路径</button>
+            <div class="planner-evidence">
+              <b>Agent 当前会参考</b>
+              <span>学情 72% · 几何证明 48% · 一次函数 65% · 期中 90+ · 每日 2 小时</span>
+            </div>
+          </section>
+
+          <section class="panel planner-summary">
+            <div class="panel-head"><h3>Agent 规划逻辑</h3><span class="pill success">自适应</span></div>
+            <div class="planner-flow">
+              <div><span>01</span><b>读取学情</b><small>优先处理低掌握度知识点</small></div>
+              <div><span>02</span><b>计算时间</b><small>把总时间拆成可执行的每日预算</small></div>
+              <div><span>03</span><b>安排阶段</b><small>基础 → 综合 → 错题 → 模考</small></div>
+              <div><span>04</span><b>动态重排</b><small>根据完成率和测验结果调整下一阶段</small></div>
+            </div>
+            <div class="planner-rule">
+              <strong>不是固定日历</strong>
+              <p>如果一次函数连续两次测验 ≥80%，系统会减少基础复习；如果几何证明仍低于掌握门槛，则自动增加补救训练。</p>
+            </div>
+          </section>
+        </div>
+
+        <section class="panel generated-plan">
+          <div class="generated-head">
+            <div><span class="eyebrow">AI 已生成</span><h3 id="plan-result-title">30 天 · 期中 90+ · 每天 2 小时</h3></div>
+            <span class="pill success" id="plan-status">基于当前学情</span>
+          </div>
+          <div class="plan-metrics">
+            <div><span>最高优先级</span><b>几何证明</b></div>
+            <div><span>第二优先级</span><b>一次函数</b></div>
+            <div><span>稳定知识点</span><b>三角形</b></div>
+            <div><span>每日预算</span><b id="plan-budget">120 分钟</b></div>
+          </div>
+          <div class="week-plan" id="week-plan">
+            <article class="week-card high">
+              <div class="week-index">第 1 周</div>
+              <div class="week-main"><h4>一次函数基础</h4><p>补齐概念、图像、解析式基础，穿插 1 次小测。</p><div class="week-tags"><span>基础修复</span><b>每天 40 分钟</b></div></div>
+              <div class="week-check">基础</div>
+            </article>
+            <article class="week-card mid">
+              <div class="week-index">第 2 周</div>
+              <div class="week-main"><h4>一次函数综合题</h4><p>从基础题过渡到综合应用，优先消灭条件提取错误。</p><div class="week-tags"><span>变式训练</span><b>每天 50 分钟</b></div></div>
+              <div class="week-check">进阶</div>
+            </article>
+            <article class="week-card high">
+              <div class="week-index">第 3 周</div>
+              <div class="week-main"><h4>几何证明</h4><p>证明结构 → 全等判定 → 辅助线 → 综合证明，重点回收错题。</p><div class="week-tags"><span>最高优先级</span><b>每天 60 分钟</b></div></div>
+              <div class="week-check">攻坚</div>
+            </article>
+            <article class="week-card final">
+              <div class="week-index">第 4 周</div>
+              <div class="week-main"><h4>综合训练 + 错题复习</h4><p>混合题训练、限时小测、错题再测；根据结果决定最后冲刺内容。</p><div class="week-tags"><span>掌握检验</span><b>动态分配</b></div></div>
+              <div class="week-check">冲刺</div>
+            </article>
+          </div>
+          <div class="adaptive-note"><span>↻</span><div><b>每 3 天重新评估一次</b><p>完成率、测验正确率和错题复发情况都会影响下一阶段，而不是生成一次计划后就不再变化。</p></div></div>
+        </section>
       </section>
 
       <section class="page" id="qa">
@@ -238,12 +302,82 @@
       </section>
 
       <section class="page" id="mistakes">
-        <div class="page-intro"><span class="tag">错题复盘</span><h3>不是把错题存起来，而是把错误练会</h3><p>系统定位错误知识点 → 讲清原因 → 生成同类题/变式题 → 再次检测掌握情况。</p></div>
-        <div class="mistake-stats"><div class="panel"><b>7</b><span>待复盘</span></div><div class="panel"><b>12</b><span>本周已复盘</span></div><div class="panel"><b>23%</b><span>错题下降</span></div></div><div class="mistake-grid">
-          <article class="mistake-card"><div class="mistake-top"><span class="pill danger">待复盘</span><span>10月6日</span></div><h3>一次函数图像与解析式</h3><p>错误类型：条件提取错误</p><div class="mistake-actions"><button data-toast="已开始复盘">开始复盘</button><button data-toast="已生成3道变式题">生成变式题</button></div></article>
-          <article class="mistake-card"><div class="mistake-top"><span class="pill danger">待复盘</span><span>10月5日</span></div><h3>三角形全等判定</h3><p>错误类型：定理选择错误</p><div class="mistake-actions"><button data-toast="已开始复盘">开始复盘</button><button data-toast="已生成3道变式题">生成变式题</button></div></article>
-          <article class="mistake-card"><div class="mistake-top"><span class="pill success">已掌握</span><span>10月2日</span></div><h3>勾股定理基础应用</h3><p>连续 3 次训练正确</p><div class="mistake-actions"><button data-toast="已查看复盘记录">查看复盘</button></div></article>
+        <div class="page-intro">
+          <span class="tag">错题复盘 Agent</span>
+          <h3>错题不是终点，而是一条“重新学会”的路径</h3>
+          <p>从原错题出发，Agent 依次识别错误原因、定位知识点、判断错误类型，再安排讲解、同类题、变式题和掌握检验。</p>
         </div>
+
+        <div class="mistake-stats">
+          <div class="panel"><b>7</b><span>待复盘</span><small>按优先级排序</small></div>
+          <div class="panel"><b>3</b><span>重复错误</span><small>需要专项干预</small></div>
+          <div class="panel"><b>23%</b><span>错题下降</span><small>较上周</small></div>
+          <div class="panel"><b>2</b><span>待再测</span><small>尚未通过掌握门槛</small></div>
+        </div>
+
+        <div class="mistake-layout">
+          <section class="panel mistake-library">
+            <div class="panel-head"><h3>我的错题本</h3><span class="pill">AI 优先级排序</span></div>
+            <div class="mistake-list">
+              <button class="mistake-item active" data-mistake="function">
+                <div><span class="pill danger">高优先级</span><small>10月6日</small></div>
+                <b>一次函数图像与解析式</b>
+                <span>条件提取错误 · 已重复 2 次</span>
+              </button>
+              <button class="mistake-item" data-mistake="geometry">
+                <div><span class="pill danger">高优先级</span><small>10月5日</small></div>
+                <b>三角形全等证明</b>
+                <span>证明结构错误 · 已重复 3 次</span>
+              </button>
+              <button class="mistake-item" data-mistake="pythagoras">
+                <div><span class="pill success">待再测</span><small>10月2日</small></div>
+                <b>勾股定理基础应用</b>
+                <span>连续 2 次正确 · 等待第三次检验</span>
+              </button>
+            </div>
+          </section>
+
+          <section class="panel review-workspace">
+            <div class="panel-head"><div><span class="eyebrow">正在复盘</span><h3 id="mistake-title">一次函数图像与解析式</h3></div><span class="pill warning" id="mistake-type">条件提取错误</span></div>
+            <div class="review-progress">
+              <div class="review-step active" data-review-step="1"><i>1</i><span>识别原因</span></div>
+              <div class="review-line"></div>
+              <div class="review-step" data-review-step="2"><i>2</i><span>定位知识点</span></div>
+              <div class="review-line"></div>
+              <div class="review-step" data-review-step="3"><i>3</i><span>错误类型</span></div>
+              <div class="review-line"></div>
+              <div class="review-step" data-review-step="4"><i>4</i><span>针对训练</span></div>
+              <div class="review-line"></div>
+              <div class="review-step" data-review-step="5"><i>5</i><span>掌握检验</span></div>
+            </div>
+
+            <div class="review-source">
+              <span>原错题</span>
+              <p id="mistake-question">已知一次函数 y = 2x + b 经过点（1，5），求 b。你把 b 写成了 5。</p>
+            </div>
+            <div class="review-diagnosis" id="review-diagnosis">
+              <div class="diagnosis-icon">AI</div>
+              <div><b id="review-stage-title">先找出你为什么错</b><p id="review-stage-text">不是直接告诉你 b=3。先检查：你有没有把“点在函数图像上”转化为 x、y 满足函数关系？</p></div>
+            </div>
+            <div class="review-action-area" id="review-action-area">
+              <div class="review-question"><b>第一步：判断你的错误原因</b><p>你当时为什么直接写 b = 5？</p></div>
+              <div class="review-options">
+                <button data-review-answer="忘记代入">我忘记把点代入函数</button>
+                <button data-review-answer="把y当b">我把 y 的值直接当成了 b</button>
+                <button data-review-answer="不会">我不知道点在图像上是什么意思</button>
+              </div>
+            </div>
+            <div class="review-footer"><span id="review-status">第 1/5 步 · 诊断中</span><button class="primary-btn" id="review-next">下一步 →</button></div>
+          </section>
+        </div>
+
+        <section class="panel mastery-gate">
+          <div><div><span class="eyebrow">掌握门槛</span><h3>做对一次，不等于真正掌握</h3></div><span class="pill" id="mastery-pill">尚未通过</span></div>
+          <div class="mastery-checks">
+            <span>✓ 知识点讲解</span><span>✓ 基础同类题</span><span>○ 变式题</span><span>○ 综合题</span><span>○ 间隔再测</span>
+          </div>
+          <p>只有连续通过不同难度的检测，系统才把这个知识点从“待干预”移动到“稳定掌握”。</p>
+        </section>
       </section>
 
       <section class="page" id="report">

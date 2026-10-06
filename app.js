@@ -934,46 +934,4 @@ if (profile) {
 }
 
 
-const PROFILE_KEY = 'yincaiProfile';
-const TASK_KEY = 'yincaiTasks';
-const STREAK_KEY = 'yincaiStreak';
-let profile = null;
 
-function loadProfile() {
-  try {
-    profile = JSON.parse(localStorage.getItem(PROFILE_KEY) || 'null');
-  } catch (error) {
-    profile = null;
-  }
-  return profile;
-}
-
-function saveProfile(nextProfile) {
-  profile = nextProfile;
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-}
-
-function profileContext() {
-  if (!profile) return '当前没有学生学情数据。请先让学生完成首次学情设置。';
-  return [
-    '学生姓名：' + profile.name,
-    '年级：' + profile.grade,
-    '学科：' + profile.subject,
-    '最近一次考试分数：' + (profile.score || '未填写'),
-    '考试目标：' + (profile.goal || '未填写'),
-    '距离考试：' + (profile.days || '未填写') + ' 天',
-    '每天可学习：' + (profile.hours || '未填写') + ' 小时',
-    '学生自述当前情况：' + (profile.state || '未填写'),
-    '历史错题数量：' + Object.keys(mistakeData).length
-  ].join('\\n');
-}
-
-function openOnboarding() {
-  const modal = document.getElementById('onboarding-backdrop');
-  if (modal) modal.classList.add('show');
-}
-
-function closeOnboarding() {
-  const modal = document.getElementById('onboarding-backdrop');
-  if (modal) modal.classList.remove('show');
-}

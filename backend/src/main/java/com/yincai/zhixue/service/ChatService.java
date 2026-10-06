@@ -107,8 +107,10 @@ public class ChatService {
                 var body = objectMapper.createObjectNode();
                 body.put("model", model);
                 body.put("temperature", 0.2);
-                body.put("reasoning_effort", "none");
-                body.put("max_tokens", 2500);
+                body.put("max_tokens", 1800);
+
+                var thinking = body.putObject("thinking");
+                thinking.put("type", "disabled");
 
                 var responseFormat = body.putObject("response_format");
                 responseFormat.put("type", "json_object");

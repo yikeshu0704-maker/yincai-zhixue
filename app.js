@@ -829,7 +829,7 @@ async function requestDynamicSkillQuestion(lastCorrect) {
     profileContext() + '\\n' +
     '当前重点知识点：' + (profile?.primaryTopic || profile?.subject || '当前学科') + '。\\n' +
     '最近学情诊断：' + (profile?.diagnosis ? JSON.stringify(profile.diagnosis) : '尚未完成') + '\\n' +
-    '当前技能掌握度：' + (profile?.skillMastery || '尚未测得') + '。\\n'
+    '当前技能掌握度：' + (profile?.skillMastery || '尚未测得') + '。\\n' +
     '当前训练难度：' + skillQuestions[skillLevelIndex].level + '。\\n' +
     '连续答对：' + skillStreak + '。\\n' +
     '上一题是否答对：' + (lastCorrect ? '是' : '否') + '。\\n' +

@@ -1,7 +1,6 @@
 const API_ORIGIN = 'http://127.0.0.1:8080';
 const CHAT_API_URL = API_ORIGIN + '/api/chat';
 const AGENT_API_URL = API_ORIGIN + '/api/agent';
-const HEALTH_API_URL = API_ORIGIN + '/api/health';
 
 const PROFILE_KEY = 'yincaiProfile';
 const TASK_KEY = 'yincaiTasks';
@@ -58,58 +57,6 @@ function closeOnboarding() {
 
 
 const navItems = [...document.querySelectorAll('.nav-item')];
-let healthRetryTimer = null;
-let healthRequestController = null;
-
-async function checkBackendHealth() {
-  const status = document.getElementById('backend-status');
-  if (!status) return;
-
-  if (healthRequestController) {
-    healthRequestController.abort();
-  }
-
-  healthRequestController = new AbortController();
-  const timeoutId = setTimeout(() => healthRequestController.abort(), 2500);
-
-  status.className = 'backend-status checking';
-  status.innerHTML = '<i></i>正在检查 AI 服务';
-
-  try {
-    const response = await fetch(HEALTH_API_URL, {
-      method: 'GET',
-      cache: 'no-store',
-      signal: healthRequestController.signal,
-      headers: { 'Accept': 'application/json' }
-    });
-
-    if (!response.ok) throw new Error('HTTP ' + response.status);
-
-    const data = await response.json();
-    if (data?.status !== 'ok') throw new Error('健康检查返回异常');
-
-    status.className = 'backend-status online';
-    status.innerHTML = '<i></i>AI服务在线';
-
-    clearTimeout(healthRetryTimer);
-    healthRetryTimer = null;
-  } catch (error) {
-    status.className = 'backend-status offline';
-    status.innerHTML = '<i></i>AI服务未连接';
-    clearTimeout(healthRetryTimer);
-    healthRetryTimer = setTimeout(checkBackendHealth, 8000);
-  } finally {
-    clearTimeout(timeoutId);
-    healthRequestController = null;
-  }
-}
-
-checkBackendHealth();
-window.addEventListener('focus', checkBackendHealth);
-document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible') checkBackendHealth();
-});
-
 const pages = [...document.querySelectorAll('.page')];
 const titleMap = {
   dashboard: '你的今日学习计划',

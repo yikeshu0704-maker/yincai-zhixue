@@ -62,6 +62,7 @@ function responseFor(agent) {
 
 (async () => {
   let planCalls = 0;
+  let skillCalls = 0;
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   const errors = [];
@@ -84,7 +85,20 @@ function responseFor(agent) {
         return;
       }
     }
-    const result = responseFor(body.agent);
+    let result = responseFor(body.agent);
+    if (body.agent === 'skill') {
+      skillCalls += 1;
+      if (skillCalls > 1) {
+        result = {
+          level: '综合题',
+          label: '综合应用',
+          question: '一次函数 y = kx + 1 经过点（2，5），求其与 x 轴交点的横坐标。',
+          options: { A: '-1', B: '-1/2', C: '1/2', D: '2' },
+          answer: 'B',
+          explanation: '与 x 轴交点令 y=0，需要先由点求 k，再反推截距。'
+        };
+      }
+    }
     await route.fulfill({
       status: 200,
       contentType: 'application/json',

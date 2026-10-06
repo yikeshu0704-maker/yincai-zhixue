@@ -5,7 +5,7 @@ const AGENT_API_URL = API_ORIGIN + '/api/agent';
 const PROFILE_KEY = 'yincaiProfile';
 const TASK_KEY = 'yincaiTasks';
 const STREAK_KEY = 'yincaiStreak';
-const DATA_VERSION = '2026-10-07-first-user-flow-v2';
+const DATA_VERSION = '2026-10-07-question-bank-3000-v1';
 
 if (localStorage.getItem('yincaiDataVersion') !== DATA_VERSION) {
   ['yincaiProfile', 'yincaiTasks', 'yincaiStreak', 'yincaiMistakes'].forEach((key) => localStorage.removeItem(key));
@@ -948,12 +948,18 @@ function difficultyLabel(level, suffix = true) {
 
 function importedJuniorHighBank() {
   const raw = Array.isArray(window.YINCaiJuniorHighMathBank) ? window.YINCaiJuniorHighMathBank : [];
-  return raw.map(q => ({
-    ...q,
-    level: Math.max(0, Math.min(3, Number(q.difficulty || 1) - 1)),
-    label: difficultyLabel(Math.max(0, Math.min(3, Number(q.difficulty || 1) - 1)), false),
-    source: Array.isArray(q.source) ? q.source : []
-  }));
+  return raw.map(q => {
+    const isCJEval = q.sourceDataset === 'CJEval';
+    const level = isCJEval
+      ? Math.max(0, Math.min(3, Number(q.difficulty || 0)))
+      : Math.max(0, Math.min(3, Number(q.difficulty || 1) - 1));
+    return {
+      ...q,
+      level,
+      label: difficultyLabel(level, false),
+      source: Array.isArray(q.source) ? q.source : []
+    };
+  });
 }
 
 function topicMatchesQuestion(topic, q) {
@@ -1097,23 +1103,35 @@ function renderSkillQuestion() {
     return;
   }
 
-  document.getElementById('skill-level-title').textContent=difficultyLabel(q.level):q.label||'训练题';
+  document.getElementById('skill-level-title').textContent=difficultyLabel(q.level) || q.label || '训练题';
   document.getElementById('skill-level-pill').textContent=q.label||'AI训练';
   document.getElementById('skill-question-text').textContent=q.question||'';
   document.getElementById('skill-question-no').textContent=String(skillQuestionNo);
-  document.getElementById('skill-current-level').textContent=(difficultyLabel(q.level):q.level)||q.label||'训练题';
+  document.getElementById('skill-current-level').textContent=difficultyLabel(q.level) || q.label || '训练题';
   document.getElementById('skill-mastery').textContent=skillAttempts ? skillMastery+'%' : '--';
   document.getElementById('skill-decision-pill').textContent=skillAnswered?'本题已完成':skillLoading?'AI正在出题':'自适应训练中';
   document.getElementById('skill-decision-text').textContent=skillAnswered?'当前题目已保留。你可以回看后再进入下一题。':skillLoading?'正在根据你的学情和历史表现选择题目。':'下一题会根据这道题的答题表现升难或降难。';
   document.getElementById('skill-next-level').textContent=skillAnswered?'下一题将综合最新表现':(['基础题','中等题','困难题','拔尖题'][Math.min(3,skillLevelIndex+1)]||'保持当前难度');
 
-  options.innerHTML=Object.entries(q.options||{}).map(([k,v])=>'<button type="button" data-skill-option="'+escapeHtml(k)+'"'+(skillAnswered||skillLoading?' disabled':'')+'>'+escapeHtml(k+'. '+v)+'</button>').join('');
-  if(!skillAnswered&&!skillLoading){
-    options.querySelectorAll('[data-skill-option]').forEach(btn=>btn.addEventListener('click',()=>{
-      selectedSkillOption=btn.dataset.skillOption;
-      options.querySelectorAll('button').forEach(x=>x.classList.remove('selected'));
-      btn.classList.add('selected');
-    }));
+  const hasChoiceOptions = q.options && ['A','B','C','D'].every(k => q.options[k]);
+  if (!hasChoiceOptions || q.inputType === 'text') {
+    options.innerHTML =
+      '<label class="skill-text-answer"><span>填写你的答案</span>' +
+      '<textarea id="skill-free-answer" rows="4" placeholder="写出最终答案或关键结论"'+(skillAnswered||skillLoading?' disabled':'')+'>'+escapeHtml(selectedSkillOption||'')+'</textarea>' +
+      '</label>';
+    const input=document.getElementById('skill-free-answer');
+    if(input && !skillAnswered && !skillLoading){
+      input.addEventListener('input',()=>{ selectedSkillOption=input.value.trim(); });
+    }
+  } else {
+    options.innerHTML=Object.entries(q.options||{}).map(([k,v])=>'<button type="button" data-skill-option="'+escapeHtml(k)+'"'+(skillAnswered||skillLoading?' disabled':'')+'>'+escapeHtml(k+'. '+v)+'</button>').join('');
+    if(!skillAnswered&&!skillLoading){
+      options.querySelectorAll('[data-skill-option]').forEach(btn=>btn.addEventListener('click',()=>{
+        selectedSkillOption=btn.dataset.skillOption;
+        options.querySelectorAll('button').forEach(x=>x.classList.remove('selected'));
+        btn.classList.add('selected');
+      }));
+    }
   }
 
   if(submit)submit.disabled=skillAnswered||skillLoading;
@@ -1261,16 +1279,37 @@ async function analyzeSkillMistake(q,chosen,mistakeId){
   }
 }
 
+function normalizeSkillAnswer(value){
+  return String(value||'')
+    .trim()
+    .toLowerCase()
+    .replace(/\\s+/g,'')
+    .replace(/[\\$\\{\\}\\[\\]（）()，,。；;：:]/g,'');
+}
+
+function skillAnswersEquivalent(chosen, answer){
+  const a=normalizeSkillAnswer(chosen);
+  const b=normalizeSkillAnswer(answer);
+  if(!a||!b)return false;
+  if(a===b)return true;
+  const na=Number(a), nb=Number(b);
+  return Number.isFinite(na) && Number.isFinite(nb) && Math.abs(na-nb)<1e-9;
+}
+
 document.getElementById('skill-submit')?.addEventListener('click',async()=>{
   const q=dynamicSkillQuestion;
   if(!q||skillAnswered||skillLoading)return;
+  if(q.inputType==='text'){
+    const input=document.getElementById('skill-free-answer');
+    selectedSkillOption=input ? input.value.trim() : '';
+  }
   if(!selectedSkillOption){
-    showToast('先选择一个答案');
+    showToast(q.inputType==='text'?'先填写答案':'先选择一个答案');
     return;
   }
 
   const chosen=selectedSkillOption;
-  const correct=chosen===q.answer;
+  const correct=q.inputType==='text' ? skillAnswersEquivalent(chosen,q.answer) : chosen===q.answer;
   let mistakeId=null;
 
   if(!correct){

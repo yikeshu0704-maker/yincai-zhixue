@@ -243,7 +243,15 @@ function parseAgentJson(raw) {
 function renderDiagnosisResult(data) {
   profile.diagnosis = data;
   profile.primaryTopic = data.priorities?.[0]?.name || '';
+  profile.diagnosedAt = new Date().toISOString();
   saveProfile(profile);
+
+  const diagnosisState = document.getElementById('profile-diagnosis-state');
+  if (diagnosisState) {
+    diagnosisState.textContent = profile.primaryTopic
+      ? 'AI 已诊断 · 当前重点：' + profile.primaryTopic
+      : 'AI 已完成第一版学习画像';
+  }
 
   const main = document.getElementById('analysis-main');
   const summary = document.getElementById('analysis-agent-result');
@@ -282,19 +290,77 @@ function renderDiagnosisResult(data) {
   requestDynamicSkillQuestion(false).catch(() => {});
 }
 
+let analysisProgressTimer = null;
+
+function startAnalysisProgress() {
+  clearInterval(analysisProgressTimer);
+  let value = 8;
+  let step = 0;
+  const messages = [
+    '正在读取你的学情信息…',
+    '正在判断哪些信息足够形成证据…',
+    '正在排列当前干预优先级…',
+    '正在形成你的第一份学习画像…'
+  ];
+  const bar = document.getElementById('analysis-progress-bar');
+  const text = document.getElementById('analysis-progress-text');
+  if (bar) {
+    bar.style.width = value + '%';
+    bar.classList.add('running');
+    bar.classList.remove('failed');
+  }
+  if (text) text.textContent = messages[0];
+
+  analysisProgressTimer = setInterval(() => {
+    value = Math.min(88, value + 8);
+    step = Math.min(messages.length - 1, step + 1);
+    if (bar) bar.style.width = value + '%';
+    if (text) text.textContent = messages[step];
+  }, 1500);
+}
+
+function finishAnalysisProgress(success, message) {
+  clearInterval(analysisProgressTimer);
+  const bar = document.getElementById('analysis-progress-bar');
+  const text = document.getElementById('analysis-progress-text');
+  if (bar) {
+    bar.style.width = success ? '100%' : '0%';
+    bar.classList.remove('running');
+    bar.classList.toggle('failed', !success);
+  }
+  if (text) text.textContent = message;
+}
+
 async function runAnalysisAgent() {
-  if (!profile) { openOnboarding(); showToast('先完成首次学情设置'); return; }
-  if (analysisAgentButton) { analysisAgentButton.disabled = true; analysisAgentButton.textContent = 'AI分析中…'; }
+  if (!profile) {
+    openOnboarding();
+    showToast('先完成首次学情设置');
+    return;
+  }
+
+  if (analysisAgentButton) {
+    analysisAgentButton.disabled = true;
+    analysisAgentButton.textContent = 'AI分析中…';
+  }
+
+  startAnalysisProgress();
+
   try {
     const answer = await callAgent('analysis', profileContext() + '\\n请完成第一次学情诊断。');
     renderDiagnosisResult(parseAgentJson(answer));
     renderProfile();
+    finishAnalysisProgress(true, '诊断完成：学习画像已更新');
+    showToast('学情画像已更新');
   } catch (error) {
     const resultNode = document.getElementById('analysis-agent-result');
     if (resultNode) resultNode.textContent = error.message;
+    finishAnalysisProgress(false, '诊断失败：' + error.message);
     showToast('学情分析失败');
   } finally {
-    if (analysisAgentButton) { analysisAgentButton.disabled = false; analysisAgentButton.textContent = 'AI重新诊断'; }
+    if (analysisAgentButton) {
+      analysisAgentButton.disabled = false;
+      analysisAgentButton.textContent = 'AI重新诊断';
+    }
   }
 }
 
@@ -801,14 +867,23 @@ const loadStatus = document.getElementById('load-status');
 
 async function callAgent(agent, context) {
   let response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 75000);
+
   try {
     response = await fetch(AGENT_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ agent, context })
+      body: JSON.stringify({ agent, context }),
+      signal: controller.signal
     });
   } catch (error) {
+    if (error.name === 'AbortError') {
+      throw new Error('Agent 请求超过 75 秒仍未完成。请确认后端已重新启动，并检查 DeepSeek 接口状态。');
+    }
     throw new Error('无法连接学习 Agent 后端（127.0.0.1:8080）。请确认 Spring Boot 已重新启动。');
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   let data = null;
@@ -1020,6 +1095,12 @@ function renderProfile() {
   if (profileAvatar) profileAvatar.textContent = initial;
   if (profileTitle) profileTitle.textContent = profile.name + ' · ' + (profile.grade || '') + (profile.subject ? profile.subject : '');
   if (profileSummary) profileSummary.innerHTML = '最近考试 <b>' + (profile.score || '未填写') + '</b> 分 · 每日可用学习时间 <b>' + (profile.hours || '未填写') + ' 小时</b> · 目标 <b>' + (profile.goal || '未填写') + '</b>';
+  const diagnosisState = document.getElementById('profile-diagnosis-state');
+  if (diagnosisState) {
+    diagnosisState.textContent = profile.diagnosis
+      ? (profile.primaryTopic ? 'AI 已诊断 · 当前重点：' + profile.primaryTopic : 'AI 已完成第一版学习画像')
+      : '尚未完成 AI 学情诊断';
+  }
   if (dashboardTitle) dashboardTitle.innerHTML = '欢迎回来，<em>' + escapeHtml(profile.name) + '</em>';
   if (dashboardCopy) dashboardCopy.textContent = '这是你的第一次真实学习周期。先完成学情诊断，再让 Agent 决定接下来学什么。';
   if (dashboardScore) dashboardScore.textContent = profile.score ? profile.score + '分' : '--';

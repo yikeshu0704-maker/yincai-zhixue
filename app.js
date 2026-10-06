@@ -1,4 +1,24 @@
+const API_ORIGIN = 'http://localhost:8080';
+const CHAT_API_URL = API_ORIGIN + '/api/chat';
+const AGENT_API_URL = API_ORIGIN + '/api/agent';
+const HEALTH_API_URL = API_ORIGIN + '/api/health';
+
 const navItems = [...document.querySelectorAll('.nav-item')];
+async function checkBackendHealth() {
+  const status = document.getElementById('backend-status');
+  if (!status) return;
+  try {
+    const response = await fetch(HEALTH_API_URL, { method: 'GET' });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    status.className = 'backend-status online';
+    status.innerHTML = '<i></i>AI服务在线';
+  } catch (error) {
+    status.className = 'backend-status offline';
+    status.innerHTML = '<i></i>AI服务离线';
+  }
+}
+checkBackendHealth();
+
 const pages = [...document.querySelectorAll('.page')];
 const titleMap = {
   dashboard: '你的今日学习计划',
@@ -41,7 +61,6 @@ document.querySelectorAll('[data-toast]').forEach((button) => button.addEventLis
 const chatForm = document.getElementById('chat-form');
 const chatInput = document.getElementById('chat-input');
 const chatLog = document.getElementById('chat-log');
-const CHAT_API_URL = 'http://localhost:8080/api/chat';
 let chatPending = false;
 
 function appendAssistantBubble(answerText, noteText) {
@@ -482,8 +501,6 @@ const motivationStatus=document.getElementById('motivation-status');
 
 
 
-
-const AGENT_API_URL = 'http://localhost:8080/api/agent';
 
 async function callAgent(agent, context) {
   const response = await fetch(AGENT_API_URL, {

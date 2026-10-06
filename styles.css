@@ -523,3 +523,11 @@ button { cursor: pointer; }
 .agent-error-detail summary{cursor:pointer;font-size:10px;color:var(--accent);font-weight:700}
 .agent-error-detail p{margin:6px 0 0;padding:8px;border-radius:8px;background:#fff4f4;color:#a6494e;line-height:1.5}
 @media(max-width:800px){.skill-history-list{grid-template-columns:1fr}}
+
+.skill-generation{display:flex;align-items:center;gap:10px;margin-top:10px;padding:11px 13px;border:1px solid #dfe3ff;border-radius:11px;background:#fafbff}
+.skill-generation b{display:block;font-size:11px;color:var(--text)}
+.skill-generation p{margin:3px 0 0;font-size:10px;line-height:1.5;color:var(--muted)}
+.skill-spinner{width:18px;height:18px;border-radius:50%;border:2px solid #dfe3ff;border-top-color:var(--accent);animation:skillSpin .8s linear infinite;flex:0 0 auto}
+@keyframes skillSpin{to{transform:rotate(360deg)}}
+.mastery-row.pending .mastery-bar i{background:#d9dee8}
+.mastery-row.pending>strong{color:var(--muted)}

@@ -106,6 +106,7 @@ function responseFor(agent) {
     localStorage.removeItem('yincaiPlan');
     localStorage.removeItem('yincaiSkill');
     localStorage.removeItem('yincaiMistakes');
+    localStorage.removeItem('yincaiSkillHistory');
   }, profile);
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(500);
@@ -145,17 +146,33 @@ function responseFor(agent) {
   }
 
   await page.locator('.nav-item[data-page="skills"]').click();
-  await page.waitForTimeout(200);
+  await page.locator('#skill-next').click();
+  await page.waitForTimeout(250);
   if (!(await page.locator('#skill-options button').count())) {
-    throw new Error('技能训练没有生成题目');
+    throw new Error('技能训练没有生成第一题');
   }
+
+  const firstQuestion = await page.locator('#skill-question-text').textContent();
   await page.locator('#skill-options button[data-skill-option="B"]').click();
   await page.locator('#skill-submit').click();
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(100);
 
-  if (!(await page.locator('#skill-result-title').textContent()).includes('第')) {
-    throw new Error('技能训练答题后没有进入下一状态');
+  if (!(await page.locator('#skill-question-text').textContent()).includes(firstQuestion)) {
+    throw new Error('提交后上一题没有保留，页面自动跳题了');
   }
+
+  if (await page.locator('#skill-next').getAttribute('hidden') !== null) {
+    throw new Error('提交后没有出现“下一题”按钮');
+  }
+
+  const historyCount = await page.locator('#skill-history-list .skill-history-item').count();
+  if (historyCount !== 1) throw new Error('第一题没有进入题目历史');
+
+  // 故意点击错误答案，验证错题记录。
+  await page.locator('#skill-next').click();
+  await page.waitForTimeout(250);
+  const currentQuestion = await page.locator('#skill-question-text').textContent();
+  if (currentQuestion === firstQuestion) throw new Error('下一题与上一题重复');
 
   await page.locator('#skill-options button[data-skill-option="A"]').click();
   await page.locator('#skill-submit').click();
@@ -163,6 +180,9 @@ function responseFor(agent) {
 
   const mistakeCount = await page.locator('#mistake-stat-pending').textContent();
   if (mistakeCount !== '1') throw new Error('答错后没有进入错题本，当前数量：' + mistakeCount);
+
+  const historyItems = await page.locator('#skill-history-list .skill-history-item').count();
+  if (historyItems !== 2) throw new Error('第二题提交后没有进入题目历史');
 
   await page.locator('.nav-item[data-page="qa"]').click();
   await page.locator('#chat-input').fill('你好，请先告诉我应该怎么学。');

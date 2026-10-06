@@ -30,10 +30,10 @@
 
       <div class="sidebar-footer">
         <div class="student-mini">
-          <div class="avatar">林</div>
+          <div class="avatar" id="student-avatar">?</div>
           <div>
-            <strong>林同学</strong>
-            <span>初二 · 数学</span>
+            <strong id="student-name-mini">首次使用</strong>
+            <span id="student-subject-mini">请先完成学情设置</span>
           </div>
         </div>
       </div>
@@ -55,43 +55,46 @@
         <div class="hero-card">
           <div>
             <span class="tag">AI 个性化学习</span>
-            <h3>今天继续攻克<br /><em>一次函数</em>与几何证明</h3>
-            <p>根据最近 7 天的答题表现，系统把“几何证明”列为当前最高优先级。</p>
+            <h3 id="dashboard-hero-title">先建立你的学习画像</h3>
+            <p id="dashboard-hero-copy">第一次使用时，先告诉 AI 你的年级、学科、目标和当前学习情况，系统才能真正因材施教。</p>
             <button class="primary-btn" data-go="plan">查看今日任务</button>
           </div>
           <div class="hero-score">
             <span>综合掌握度</span>
-            <strong>72%</strong>
-            <small>较上周 +8%</small>
+            <strong id="dashboard-score">--</strong>
+            <small id="dashboard-score-note">等待你的第一次学情输入</small>
           </div>
         </div>
 
-        <div class="ai-recommendation panel"><div class="ai-icon">AI</div><div><span class="eyebrow">AI 今日建议</span><h3>先复盘 3 道几何错题，再做 2 道变式题。</h3><p>你的几何证明正确率连续偏低，今天优先解决薄弱点，而不是继续堆刷题量。</p></div><button class="text-btn" data-go="mistakes">立即复盘 →</button></div>
+        <div class="ai-recommendation panel"><div class="ai-icon">AI</div><div><span class="eyebrow">AI 今日建议</span><h3 id="dashboard-ai-title">完成首次学情设置后，我会给你第一条建议。</h3><p id="dashboard-ai-copy">你的学习数据将从你的真实填写、测试结果和后续答题记录开始累积。</p></div><button class="text-btn" id="dashboard-profile-btn">先填写学情 →</button></div>
 
         <div class="stats-grid">
-          <article class="stat-card"><span>今日任务</span><strong id="task-count">1 / 4</strong><small id="task-rate">完成率 25%</small></article>
-          <article class="stat-card"><span>连续学习</span><strong>5 天</strong><small>保持得很好</small></article>
-          <article class="stat-card"><span>待复盘错题</span><strong>7 道</strong><small>建议今天完成 3 道</small></article>
-          <article class="stat-card"><span>本周学习</span><strong>6.4 h</strong><small>目标 8 h</small></article>
+          <article class="stat-card"><span>今日任务</span><strong id="task-count">0 / 0</strong><small id="task-rate">完成率 0%</small></article>
+          <article class="stat-card"><span>连续学习</span><strong id="streak-count">0 天</strong><small>首次使用</small></article>
+          <article class="stat-card"><span>待复盘错题</span><strong id="mistake-count">0 道</strong><small>完成练习后自动记录</small></article>
+          <article class="stat-card"><span>本周学习</span><strong id="week-hours">0 h</strong><small>从今天开始累计</small></article>
         </div>
 
         <div class="section-grid">
           <section class="panel">
             <div class="panel-head"><h3>今日学习任务</h3><button class="text-btn" data-go="plan">全部计划</button></div>
             <div class="task-list">
-              <label class="task-item done"><input type="checkbox" checked /><span><b>复习一次函数概念</b><small>20 分钟 · 已完成</small></span></label>
-              <label class="task-item"><input type="checkbox" /><span><b>完成 5 道基础题</b><small>30 分钟 · 推荐</small></span></label>
-              <label class="task-item"><input type="checkbox" /><span><b>复盘 3 道几何错题</b><small>25 分钟 · 高优先级</small></span></label>
-              <label class="task-item"><input type="checkbox" /><span><b>完成 2 道变式题</b><small>25 分钟 · 训练</small></span></label>
+              <div class="empty-state" id="dashboard-task-empty">
+                <b>你还没有学习任务</b>
+                <p>完成首次学情设置后，AI 才会根据你的真实情况生成任务。</p>
+                <button class="ghost-btn" data-go="analysis">开始填写 →</button>
+              </div>
+              <div class="task-list-generated" id="dashboard-task-generated"></div>
             </div>
           </section>
 
           <section class="panel">
             <div class="panel-head"><h3>薄弱知识点</h3><button class="text-btn" data-go="analysis">查看学情</button></div>
             <div class="weak-list">
-              <div class="weak-item"><div><b>几何证明</b><span>掌握度 48%</span></div><div class="progress"><i style="width:48%"></i></div></div>
-              <div class="weak-item"><div><b>一次函数</b><span>掌握度 65%</span></div><div class="progress"><i style="width:65%"></i></div></div>
-              <div class="weak-item"><div><b>勾股定理</b><span>掌握度 71%</span></div><div class="progress"><i style="width:71%"></i></div></div>
+              <div class="empty-state" id="weak-empty">
+                <b>还没有学情数据</b>
+                <p>先填写最近考试、目标和当前学习情况，AI 才会生成你的薄弱知识点。</p>
+              </div>
             </div>
           </section>
         </div>
@@ -106,46 +109,34 @@
 
         <div class="profile-overview panel">
           <div class="profile-main">
-            <div class="profile-avatar">林</div>
+            <div class="profile-avatar" id="profile-avatar">?</div>
             <div>
               <span class="eyebrow">当前学习画像</span>
-              <h3>林同学 · 初二数学</h3>
-              <p>最近考试 <b>72 分</b> · 每日可用学习时间 <b>2 小时</b> · 晚间完成率较高</p>
+              <h3 id="profile-title">尚未建立学习画像</h3>
+              <p id="profile-summary">请先填写你的基本信息、考试目标和当前学习情况。</p>
             </div>
           </div>
           <div class="hero-actions">
-            <button class="ghost-btn" data-toast="学情编辑入口已准备">编辑我的情况</button>
+            <button class="ghost-btn" id="edit-profile-btn">填写 / 修改我的情况</button>
             <button class="primary-btn" id="run-analysis-agent">AI重新诊断</button>
           </div>
         </div>
 
         <div class="evidence-grid">
-          <article class="evidence-card"><span class="evidence-icon">01</span><div><b>学生填写</b><p>初二 · 数学 · 目标期中 90+</p></div></article>
-          <article class="evidence-card"><span class="evidence-icon">02</span><div><b>最近测试</b><p>72 分 · 综合掌握度 72%</p></div></article>
-          <article class="evidence-card"><span class="evidence-icon">03</span><div><b>平时答题</b><p>函数综合题正确率偏低</p></div></article>
-          <article class="evidence-card"><span class="evidence-icon">04</span><div><b>错题记录</b><p>几何证明重复出现同类错误</p></div></article>
-          <article class="evidence-card"><span class="evidence-icon">05</span><div><b>学习时间</b><p>19:00–21:00 学习完成率最高</p></div></article>
+          <article class="evidence-card"><span class="evidence-icon">01</span><div><b>基本信息</b><p id="evidence-profile">等待填写</p></div></article>
+          <article class="evidence-card"><span class="evidence-icon">02</span><div><b>最近测试</b><p id="evidence-score">等待填写</p></div></article>
+          <article class="evidence-card"><span class="evidence-icon">03</span><div><b>学习目标</b><p id="evidence-goal">等待填写</p></div></article>
+          <article class="evidence-card"><span class="evidence-icon">04</span><div><b>当前状态</b><p id="evidence-state">等待填写</p></div></article>
+          <article class="evidence-card"><span class="evidence-icon">05</span><div><b>时间约束</b><p id="evidence-time">等待填写</p></div></article>
         </div>
 
         <div class="analysis-grid">
           <article class="panel big-panel">
             <div class="panel-head"><h3>知识点掌握地图</h3><span class="pill">实时画像</span></div>
-            <div class="mastery-list">
-              <div class="mastery-row priority-high">
-                <div class="mastery-name"><b>几何证明</b><span>高优先级</span></div>
-                <div class="mastery-bar"><i style="width:48%"></i></div><strong>48%</strong>
-              </div>
-              <div class="mastery-row priority-mid">
-                <div class="mastery-name"><b>一次函数</b><span>中优先级</span></div>
-                <div class="mastery-bar"><i style="width:65%"></i></div><strong>65%</strong>
-              </div>
-              <div class="mastery-row">
-                <div class="mastery-name"><b>三角形</b><span>基础稳定</span></div>
-                <div class="mastery-bar"><i style="width:90%"></i></div><strong>90%</strong>
-              </div>
-              <div class="mastery-row">
-                <div class="mastery-name"><b>勾股定理</b><span>基本掌握</span></div>
-                <div class="mastery-bar"><i style="width:71%"></i></div><strong>71%</strong>
+            <div class="mastery-list" id="mastery-list">
+              <div class="empty-state">
+                <b>等待第一次学情诊断</b>
+                <p>填写当前学习情况后，AI 会在这里生成你的知识点掌握地图。</p>
               </div>
             </div>
           </article>
@@ -154,13 +145,13 @@
             <div class="panel-head"><h3>Agent 诊断结论</h3><span class="pill warning">需要干预</span></div>
             <div class="diagnosis-callout">
               <span>当前主要薄弱点</span>
-              <strong>一次函数 + 几何证明</strong>
-              <p id="analysis-agent-result">其中 <b>几何证明</b> 优先级最高。</p>
+              <strong id="analysis-main">尚未诊断</strong>
+              <p id="analysis-agent-result">填写学情后点击“AI重新诊断”。</p>
             </div>
             <div class="reason-list">
-              <div><span>01</span><p>掌握度只有 <b>48%</b>，明显低于其他知识点。</p></div>
-              <div><span>02</span><p>错题记录显示同类“证明思路组织”错误重复出现。</p></div>
-              <div><span>03</span><p>一次函数基础掌握尚可，但综合题需要变式训练。</p></div>
+              <div><span>01</span><p id="analysis-reason-1">等待 AI 诊断。</p></div>
+              <div><span>02</span><p id="analysis-reason-2">等待后续答题与错题记录。</p></div>
+              <div><span>03</span><p id="analysis-reason-3">等待 AI 生成训练建议。</p></div>
             </div>
             <button class="primary-btn full-btn" data-go="plan">按诊断结果生成学习计划</button>
           </article>
@@ -178,15 +169,15 @@
           <section class="panel planner-input">
             <div class="panel-head"><h3>告诉 AI 你的学习约束</h3><span class="pill">路径规划</span></div>
             <label class="field-label">你的目标</label>
-            <textarea id="plan-goal" class="planner-textarea">我还有30天期中考试，每天只能学习2小时，希望数学达到90分以上。</textarea>
+            <textarea id="plan-goal" class="planner-textarea" placeholder="例如：我还有30天期中考试，每天只能学习2小时，希望数学达到90分以上。"></textarea>
             <div class="field-grid">
-              <label><span>剩余天数</span><input id="plan-days" type="number" value="30" min="1" max="180"></label>
-              <label><span>每天学习</span><input id="plan-hours" type="number" value="2" min="0.5" max="12" step="0.5"></label>
+              <label><span>剩余天数</span><input id="plan-days" type="number" placeholder="例如 30" min="1" max="180"></label>
+              <label><span>每天学习</span><input id="plan-hours" type="number" placeholder="例如 2" min="0.5" max="12" step="0.5"></label>
             </div>
             <button class="primary-btn full-btn" id="generate-plan">生成我的学习路径</button>
             <div class="planner-evidence">
               <b>Agent 当前会参考</b>
-              <span>学情 72% · 几何证明 48% · 一次函数 65% · 期中 90+ · 每日 2 小时</span>
+              <span id="planner-evidence-text">完成首次学情设置后，这里会显示 AI 可使用的学生信息。</span>
             </div>
           </section>
 
@@ -207,36 +198,20 @@
 
         <section class="panel generated-plan">
           <div class="generated-head">
-            <div><span class="eyebrow">AI 已生成</span><h3 id="plan-result-title">30 天 · 期中 90+ · 每天 2 小时</h3></div>
-            <span class="pill success" id="plan-status">基于当前学情</span>
+            <div><span class="eyebrow">AI 已生成</span><h3 id="plan-result-title">尚未生成学习路径</h3></div>
+            <span class="pill" id="plan-status">等待输入</span>
           </div>
           <div class="plan-metrics">
-            <div><span>最高优先级</span><b>几何证明</b></div>
-            <div><span>第二优先级</span><b>一次函数</b></div>
-            <div><span>稳定知识点</span><b>三角形</b></div>
-            <div><span>每日预算</span><b id="plan-budget">120 分钟</b></div>
+            <div><span>最高优先级</span><b id="plan-priority-1">待诊断</b></div>
+            <div><span>第二优先级</span><b id="plan-priority-2">待诊断</b></div>
+            <div><span>稳定知识点</span><b id="plan-stable">待诊断</b></div>
+            <div><span>每日预算</span><b id="plan-budget">--</b></div>
           </div>
           <div class="week-plan" id="week-plan">
-            <article class="week-card high">
-              <div class="week-index">第 1 周</div>
-              <div class="week-main"><h4>一次函数基础</h4><p>补齐概念、图像、解析式基础，穿插 1 次小测。</p><div class="week-tags"><span>基础修复</span><b>每天 40 分钟</b></div></div>
-              <div class="week-check">基础</div>
-            </article>
-            <article class="week-card mid">
-              <div class="week-index">第 2 周</div>
-              <div class="week-main"><h4>一次函数综合题</h4><p>从基础题过渡到综合应用，优先消灭条件提取错误。</p><div class="week-tags"><span>变式训练</span><b>每天 50 分钟</b></div></div>
-              <div class="week-check">进阶</div>
-            </article>
-            <article class="week-card high">
-              <div class="week-index">第 3 周</div>
-              <div class="week-main"><h4>几何证明</h4><p>证明结构 → 全等判定 → 辅助线 → 综合证明，重点回收错题。</p><div class="week-tags"><span>最高优先级</span><b>每天 60 分钟</b></div></div>
-              <div class="week-check">攻坚</div>
-            </article>
-            <article class="week-card final">
-              <div class="week-index">第 4 周</div>
-              <div class="week-main"><h4>综合训练 + 错题复习</h4><p>混合题训练、限时小测、错题再测；根据结果决定最后冲刺内容。</p><div class="week-tags"><span>掌握检验</span><b>动态分配</b></div></div>
-              <div class="week-check">冲刺</div>
-            </article>
+            <div class="empty-state">
+              <b>还没有学习路径</b>
+              <p>先填写目标和时间，再点击“生成我的学习路径”。</p>
+            </div>
           </div>
           <div class="adaptive-note"><span>↻</span><div><b>每 3 天重新评估一次</b><p id="plan-agent-result">完成率、测验正确率和错题复发情况都会影响下一阶段，而不是生成一次计划后就不再变化。</p></div></div>
         </section>
@@ -399,22 +374,12 @@
         <div class="mistake-layout">
           <section class="panel mistake-library">
             <div class="panel-head"><h3>我的错题本</h3><span class="pill">AI 优先级排序</span></div>
-            <div class="mistake-list">
-              <button class="mistake-item active" data-mistake="function">
-                <div><span class="pill danger">高优先级</span><small>10月6日</small></div>
-                <b>一次函数图像与解析式</b>
-                <span>条件提取错误 · 已重复 2 次</span>
-              </button>
-              <button class="mistake-item" data-mistake="geometry">
-                <div><span class="pill danger">高优先级</span><small>10月5日</small></div>
-                <b>三角形全等证明</b>
-                <span>证明结构错误 · 已重复 3 次</span>
-              </button>
-              <button class="mistake-item" data-mistake="pythagoras">
-                <div><span class="pill success">待再测</span><small>10月2日</small></div>
-                <b>勾股定理基础应用</b>
-                <span>连续 2 次正确 · 等待第三次检验</span>
-              </button>
+            <div class="mistake-list" id="mistake-list">
+              <div class="empty-state">
+                <b>你的错题本还是空的</b>
+                <p>先去技能训练或答题。发生真实错误后，错题会自动进入这里。</p>
+                <button class="ghost-btn" data-go="skills">去做第一道题 →</button>
+              </div>
             </div>
           </section>
 
@@ -440,11 +405,11 @@
 
             <div class="review-source">
               <span>原错题</span>
-              <p id="mistake-question">已知一次函数 y = 2x + b 经过点（1，5），求 b。你把 b 写成了 5。</p>
+              <p id="mistake-question">完成一道练习并出现真实错误后，这里会显示原题。</p>
             </div>
             <div class="review-diagnosis" id="review-diagnosis">
               <div class="diagnosis-icon">AI</div>
-              <div><b id="review-stage-title">先找出你为什么错</b><p id="review-stage-text">不是直接告诉你 b=3。先检查：你有没有把“点在函数图像上”转化为 x、y 满足函数关系？</p></div>
+              <div><b id="review-stage-title">等待真实错题</b><p id="review-stage-text">先完成一道练习。系统会从你的实际错误开始复盘，而不是预置示例。</p></div>
             </div>
             <div class="review-action-area" id="review-action-area">
               <div class="review-question"><b>第一步：判断你的错误原因</b><p>你当时为什么直接写 b = 5？</p></div>
@@ -477,8 +442,8 @@
         <div class="motivation-hero panel">
           <div>
             <span class="eyebrow">AI 今日建议</span>
-            <h3 id="motivation-title">今天完成 3 道错题复盘即可，不建议继续增加任务。</h3>
-            <p id="motivation-reason">你今天已经完成 80%，连续学习 5 天；与其继续堆任务，不如把剩余精力放到高价值的错题复盘。</p>
+            <h3 id="motivation-title">完成首次学习后，AI 会根据你的真实状态给建议。</h3>
+            <p id="motivation-reason">这里不会预先给你设置学习负担。系统会根据你实际完成的任务、错误和学习时间动态判断。</p>
           </div>
           <span class="motivation-status" id="motivation-status">建议收尾</span>
         </div>
@@ -486,21 +451,21 @@
         <div class="motivation-grid">
           <article class="panel motivation-card">
             <span>今日完成</span>
-            <strong id="motivation-complete">80%</strong>
+            <strong id="motivation-complete">0%</strong>
             <div class="motivation-bar"><i id="motivation-complete-bar" style="width:80%"></i></div>
-            <small>4 / 5 项 · 已达到今日主要目标</small>
+            <small id="motivation-complete-note">还没有今日任务</small>
           </article>
           <article class="panel motivation-card">
             <span>连续学习</span>
-            <strong>5 天</strong>
+            <strong id="motivation-streak">0 天</strong>
             <div class="streak-dots"><i></i><i></i><i></i><i></i><i class="today"></i></div>
-            <small>今天完成即可保持连续学习</small>
+            <small>完成真实学习后开始累计</small>
           </article>
           <article class="panel motivation-card">
             <span>一次函数</span>
-            <strong>65% → 82%</strong>
-            <div class="trend-up">↗ +17 个百分点</div>
-            <small>基础掌握已提升，训练重心已转向综合应用</small>
+            <strong id="motivation-mastery">--</strong>
+            <div class="trend-up" id="motivation-trend">等待第一次训练</div>
+            <small>完成真实训练后，这里会显示知识点变化</small>
           </article>
         </div>
 
@@ -508,11 +473,11 @@
           <section class="panel load-panel">
             <div class="panel-head"><h3>今日学习负荷</h3><span class="pill success">适中</span></div>
             <div class="load-gauge"><i style="width:68%"></i></div>
-            <div class="load-labels"><span>轻</span><b>68%</b><span>重</span></div>
+            <div class="load-labels"><span>轻</span><b id="load-value">--</b><span>重</span></div>
             <div class="load-reasons">
-              <div><span>✓</span><p>今日任务已完成 <b>80%</b></p></div>
-              <div><span>✓</span><p>连续学习 <b>5 天</b>，不建议突然增加时长</p></div>
-              <div><span>!</span><p>仍有 <b>3 道错题</b> 值得复盘，优先级高于新增刷题</p></div>
+              <div><span>•</span><p>今日任务完成情况会在真实学习后显示</p></div>
+              <div><span>•</span><p>连续学习从第一次完成任务后开始计算</p></div>
+              <div><span>•</span><p>错题数量来自你的真实练习</p></div>
             </div>
           </section>
 
@@ -537,6 +502,39 @@
     </main>
   </div>
 
+  <div class="onboarding-backdrop" id="onboarding-backdrop">
+    <section class="onboarding-modal" role="dialog" aria-modal="true" aria-labelledby="onboarding-title">
+      <div class="onboarding-top">
+        <span class="tag">第一次使用</span>
+        <span class="onboarding-step" id="onboarding-step">第 1 / 2 步</span>
+      </div>
+      <h3 id="onboarding-title">先告诉我，你是谁</h3>
+      <p class="onboarding-copy" id="onboarding-copy">这些信息会成为你的第一份学习画像。可以随时修改。</p>
+      <form id="onboarding-form">
+        <div class="onboarding-page active" data-onboarding-page="1">
+          <div class="onboarding-grid">
+            <label><span>怎么称呼你？</span><input id="profile-name" required placeholder="例如：小明"></label>
+            <label><span>年级</span><input id="profile-grade" required placeholder="例如：初二"></label>
+            <label><span>主要学科</span><input id="profile-subject" required placeholder="例如：数学"></label>
+            <label><span>最近一次考试分数</span><input id="profile-score" type="number" min="0" max="150" placeholder="例如：72"></label>
+          </div>
+          <button class="primary-btn full-btn" type="button" id="onboarding-next">下一步 →</button>
+        </div>
+        <div class="onboarding-page" data-onboarding-page="2">
+          <div class="onboarding-grid">
+            <label><span>考试目标</span><input id="profile-goal" required placeholder="例如：期中90分"></label>
+            <label><span>距离考试还有多少天？</span><input id="profile-days" type="number" min="1" max="365" placeholder="例如：30"></label>
+            <label><span>每天可学习多久？（小时）</span><input id="profile-hours" type="number" min="0.5" max="12" step="0.5" placeholder="例如：2"></label>
+            <label class="span-2"><span>你觉得自己目前哪里最不会？</span><textarea id="profile-state" placeholder="例如：一次函数综合题经常错，几何证明不知道从哪里开始。"></textarea></label>
+          </div>
+          <div class="onboarding-actions">
+            <button class="ghost-btn" type="button" id="onboarding-back">← 上一步</button>
+            <button class="primary-btn" type="submit">建立我的学习画像</button>
+          </div>
+        </div>
+      </form>
+    </section>
+  </div>
   <div class="toast" id="toast"></div>
   <script src="app.js"></script>
 </body>

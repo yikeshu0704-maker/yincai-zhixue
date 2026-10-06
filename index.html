@@ -280,6 +280,12 @@
           <div class="chat-log" id="chat-log">
             <div class="chat assistant"><div class="chat-avatar">AI</div><div><p>你好。你可以直接发题目。我会优先判断你“不会什么”，而不是立刻把完整答案丢给你。</p><small>因材智学 · 分层辅导模式</small></div></div>
           </div>
+          <div class="chat-attachment-row">
+            <label class="attachment-btn" for="chat-image">＋ 上传题目图片</label>
+            <input id="chat-image" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden />
+            <span id="chat-image-name">支持 JPG / PNG / GIF / WebP，建议 8MB 以内</span>
+            <button type="button" class="clear-image-btn" id="clear-chat-image" hidden>移除</button>
+          </div>
           <form class="chat-form" id="chat-form"><input id="chat-input" placeholder="输入你的问题，例如：这道数学题为什么要这样做？" autocomplete="off" /><button class="primary-btn">发送</button></form>
         </div>
       </section>
@@ -362,10 +368,10 @@
         </div>
 
         <div class="mistake-stats">
-          <div class="panel"><b>7</b><span>待复盘</span><small>按优先级排序</small></div>
-          <div class="panel"><b>3</b><span>重复错误</span><small>需要专项干预</small></div>
-          <div class="panel"><b>23%</b><span>错题下降</span><small>较上周</small></div>
-          <div class="panel"><b>2</b><span>待再测</span><small>尚未通过掌握门槛</small></div>
+          <div class="panel"><b id="mistake-stat-pending">0</b><span>待复盘</span><small>来自你的真实错误</small></div>
+          <div class="panel"><b id="mistake-stat-repeat">0</b><span>重复错误</span><small>后续自动识别</small></div>
+          <div class="panel"><b id="mistake-stat-change">--</b><span>错题变化</span><small>积累数据后计算</small></div>
+          <div class="panel"><b id="mistake-stat-retest">0</b><span>待再测</span><small>通过训练后进入</small></div>
         </div>
 
         <div class="mistake-layout">
@@ -382,10 +388,10 @@
 
           <section class="panel review-workspace">
             <div class="panel-head">
-              <div><span class="eyebrow">正在复盘</span><h3 id="mistake-title">一次函数图像与解析式</h3></div>
+              <div><span class="eyebrow">正在复盘</span><h3 id="mistake-title">等待第一道错题</h3></div>
               <div class="hero-actions">
-                <button class="ghost-btn" id="ai-review-start">AI分析这道错题</button>
-                <span class="pill warning" id="mistake-type">条件提取错误</span>
+                <button class="ghost-btn" id="ai-review-start" disabled>AI分析这道错题</button>
+                <span class="pill" id="mistake-type">暂无</span>
               </div>
             </div>
             <div class="review-progress">

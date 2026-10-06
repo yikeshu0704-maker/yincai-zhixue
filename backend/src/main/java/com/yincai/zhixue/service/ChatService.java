@@ -38,10 +38,10 @@ public class ChatService {
 
     public ChatService(
             ObjectMapper objectMapper,
-            @Value("\${model.base-url}") String baseUrl,
-            @Value("\${model.api-key}") String apiKey,
-            @Value("\${model.name}") String model,
-            @Value("\${model.connect-timeout-seconds:10}") long connectTimeoutSeconds) {
+            @Value("${model.base-url}") String baseUrl,
+            @Value("${model.api-key}") String apiKey,
+            @Value("${model.name}") String model,
+            @Value("${model.connect-timeout-seconds:10}") long connectTimeoutSeconds) {
 
         this.objectMapper = objectMapper;
         this.baseUrl = baseUrl;

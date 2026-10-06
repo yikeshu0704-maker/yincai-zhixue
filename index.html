@@ -110,7 +110,10 @@
               <p>最近考试 <b>72 分</b> · 每日可用学习时间 <b>2 小时</b> · 晚间完成率较高</p>
             </div>
           </div>
-          <button class="ghost-btn" data-toast="学情编辑入口已准备">编辑我的情况</button>
+          <div class="hero-actions">
+            <button class="ghost-btn" data-toast="学情编辑入口已准备">编辑我的情况</button>
+            <button class="primary-btn" id="run-analysis-agent">AI重新诊断</button>
+          </div>
         </div>
 
         <div class="evidence-grid">
@@ -149,7 +152,7 @@
             <div class="diagnosis-callout">
               <span>当前主要薄弱点</span>
               <strong>一次函数 + 几何证明</strong>
-              <p>其中 <b>几何证明</b> 优先级最高。</p>
+              <p id="analysis-agent-result">其中 <b>几何证明</b> 优先级最高。</p>
             </div>
             <div class="reason-list">
               <div><span>01</span><p>掌握度只有 <b>48%</b>，明显低于其他知识点。</p></div>
@@ -232,7 +235,7 @@
               <div class="week-check">冲刺</div>
             </article>
           </div>
-          <div class="adaptive-note"><span>↻</span><div><b>每 3 天重新评估一次</b><p>完成率、测验正确率和错题复发情况都会影响下一阶段，而不是生成一次计划后就不再变化。</p></div></div>
+          <div class="adaptive-note"><span>↻</span><div><b>每 3 天重新评估一次</b><p id="plan-agent-result">完成率、测验正确率和错题复发情况都会影响下一阶段，而不是生成一次计划后就不再变化。</p></div></div>
         </section>
       </section>
 
@@ -413,7 +416,13 @@
           </section>
 
           <section class="panel review-workspace">
-            <div class="panel-head"><div><span class="eyebrow">正在复盘</span><h3 id="mistake-title">一次函数图像与解析式</h3></div><span class="pill warning" id="mistake-type">条件提取错误</span></div>
+            <div class="panel-head">
+              <div><span class="eyebrow">正在复盘</span><h3 id="mistake-title">一次函数图像与解析式</h3></div>
+              <div class="hero-actions">
+                <button class="ghost-btn" id="ai-review-start">AI分析这道错题</button>
+                <span class="pill warning" id="mistake-type">条件提取错误</span>
+              </div>
+            </div>
             <div class="review-progress">
               <div class="review-step active" data-review-step="1"><i>1</i><span>识别原因</span></div>
               <div class="review-line"></div>

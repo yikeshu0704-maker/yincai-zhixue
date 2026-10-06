@@ -1,6 +1,28 @@
 const API_ORIGIN = 'http://127.0.0.1:8080';
 const CHAT_API_URL = API_ORIGIN + '/api/chat';
 const AGENT_API_URL = API_ORIGIN + '/api/agent';
+const HEALTH_API_URL = API_ORIGIN + '/api/health';
+
+// 顶部 AI 服务状态由真实健康检查驱动，绝不写死。
+async function checkBackendHealth() {
+  const status = document.getElementById('backend-status');
+  if (!status) return;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(HEALTH_API_URL, { method: 'GET', signal: controller.signal });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    status.className = 'backend-status online';
+    status.innerHTML = '<i></i>DeepSeek AI · 在线';
+  } catch (error) {
+    status.className = 'backend-status offline';
+    status.innerHTML = '<i></i>AI服务离线 · 核心功能可用';
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+checkBackendHealth();
+setInterval(checkBackendHealth, 30000);
 
 const PROFILE_KEY = 'yincaiProfile';
 const TASK_KEY = 'yincaiTasks';
@@ -169,6 +191,8 @@ chatForm.addEventListener('submit', async (event) => {
   chatPending = true;
 
   const pending = appendAssistantBubble('正在分析你的题目…', sentImage ? '正在读取图片并连接后端服务…' : '正在连接后端服务…');
+  const chatController = new AbortController();
+  const chatTimeoutId = setTimeout(() => chatController.abort(), 25000);
   try {
     const response = await fetch(CHAT_API_URL, {
       method: 'POST',
@@ -177,15 +201,21 @@ chatForm.addEventListener('submit', async (event) => {
         question: profile ? (profileContext() + '\n学生当前问题：' + text) : text,
         imageData: sentImage?.data || null,
         imageMimeType: sentImage?.mimeType || null
-      })
+      }),
+      signal: chatController.signal
     });
     if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
     pending.querySelector('p').textContent = data.answer || '（后端返回内容为空，请稍后再试）';
-    pending.querySelector('small').textContent = sentImage ? '来自 DeepSeek 多模态答疑' : '来自因材智学后端服务';
+    pending.querySelector('small').textContent = sentImage ? '来自 DeepSeek 多模态答疑' : '来自 DeepSeek 答疑';
   } catch (error) {
-    pending.querySelector('p').textContent = '暂时无法完成答疑。请确认 Spring Boot 后端运行在 localhost:8080，且 DeepSeek API 可用。';
-    pending.querySelector('small').textContent = '连接失败 · ' + error.message;
+    const reason = error.name === 'AbortError'
+      ? 'AI 请求超过 25 秒仍未完成，请重新发送一次。'
+      : '暂时无法完成答疑。请确认 Spring Boot 后端运行在 localhost:8080，且 DeepSeek API 可用。';
+    pending.querySelector('p').textContent = reason;
+    pending.querySelector('small').textContent = '连接失败 · ' + (error.name === 'AbortError' ? '请求超时' : error.message);
+  } finally {
+    clearTimeout(chatTimeoutId);
   }
   chatPending = false;
   chatLog.scrollTop = chatLog.scrollHeight;
@@ -464,15 +494,17 @@ async function runAnalysisAgent() {
   try {
     const answer = await callAgent(
       'analysis',
-      profileContext() + '\n请在不改变学生事实的前提下，增强这份第一版画像；仅补充有依据的优先级和证据。'
+      profileContext() + '\n请在不改变学生事实的前提下，增强这份第一版画像；仅补充有依据的优先级和证据。',
+      60000
     );
     const data = parseAgentJson(answer);
-    if (data?.priorities?.length) {
-      renderDiagnosisResult(data);
-      renderProfile();
-      finishAnalysisProgress(true, 'AI 已增强学习画像 · 后续训练继续校正');
-      showToast('AI已完成学习画像增强');
+    if (!data?.priorities?.length) {
+      throw new Error('AI 返回结构缺少 priorities 字段，未覆盖第一版画像。');
     }
+    renderDiagnosisResult(data);
+    renderProfile();
+    finishAnalysisProgress(true, 'AI 已增强学习画像 · 后续训练继续校正');
+    showToast('AI已完成学习画像增强');
   } catch (error) {
     const resultNode = document.getElementById('analysis-agent-result');
     if (resultNode) {
@@ -581,7 +613,7 @@ function buildLocalPlan(days, minutes, goal) {
 
   const stages = [
     { week: '第1阶段', focus: first + ' · 基础补强', goal: '补齐核心概念与典型方法', minutesPerDay: Math.round(daily * 0.3), reason: '先处理当前最高优先级问题。' },
-    { week: '第2阶段', focus: first + ' · 综合应用', goal: '从基础题过渡到中等、困难和拔尖题', minutesPerDay: Math.round(daily * 0.3), reason: '减少重复基础题，进入真正薄弱的应用环节。' },
+    { week: '第2阶段', focus: first + ' · 综合应用', goal: '从基础题过渡到中等和综合题', minutesPerDay: Math.round(daily * 0.3), reason: '减少重复基础题，进入真正薄弱的应用环节。' },
     { week: '第3阶段', focus: second + ' · 专项训练', goal: '集中解决第二优先级知识点', minutesPerDay: Math.round(daily * 0.25), reason: '第一重点稳定后继续补强第二重点。' },
     { week: '第4阶段', focus: '综合训练 + 错题复习', goal: '检验迁移能力并回收重复错误', minutesPerDay: Math.round(daily * 0.15), reason: '最后阶段用于整合与掌握检验。' }
   ].slice(0, stageCount);
@@ -629,17 +661,44 @@ generatePlanButton?.addEventListener('click', async () => {
 
   await new Promise(resolve => setTimeout(resolve, 350));
 
+  // 第一层：本地保底路径立即生成，绝不让学生空等。
   const data = buildLocalPlan(days, minutes, goal);
   renderPlanResult(data, days, minutes);
 
-  if (status) status.textContent = '路径已生成 · 规划 Agent 已完成';
+  if (status) status.textContent = '保底路径已生成 · AI 个性化增强中…';
   if (result) {
-    result.textContent =
-      '路径根据当前学情、考试目标和时间预算生成。完成训练后，系统会根据正确率与错题复发重新调整下一阶段。';
+    result.textContent = '已根据你的真实学情与时间约束生成可执行路径；AI 正在做个性化增强，完成前可正常使用。';
   }
 
-  finishPlanProgress(true, '规划完成：已生成可执行学习阶段');
-  showToast('学习路径已生成');
+  // 第二层：AI 个性化增强。不同学生的输入必须得到明显不同的路径。
+  try {
+    const aiRaw = await callAgent('plan',
+      profileContext() + '\\n' +
+      '考试目标：' + goal + '\\n' +
+      '剩余天数：' + days + ' 天。\\n' +
+      '每天可学习：' + hours + ' 小时（每天约 ' + minutes + ' 分钟）。\\n' +
+      '请严格针对这名学生的分数、目标差距、薄弱知识点与时间预算生成个性化路径，不要使用通用模板。',
+      60000
+    );
+    const aiPlan = parseAgentJson(aiRaw);
+    if (!aiPlan?.weeks?.length) throw new Error('AI 返回的计划缺少阶段内容');
+    renderPlanResult(aiPlan, days, minutes);
+    if (status) status.textContent = 'AI 已生成个性化路径';
+    if (result) {
+      result.textContent = '路径由 DeepSeek 根据你的真实学情、考试目标与时间预算个性化生成。完成训练后会继续动态调整。';
+    }
+    finishPlanProgress(true, 'AI 个性化路径已生成');
+    showToast('AI 学习路径生成完成');
+  } catch (error) {
+    if (status) status.textContent = 'AI 增强失败 · 当前为本地保底路径';
+    if (result) {
+      result.innerHTML = '本地规划引擎已根据你的真实数据生成可执行路径，核心流程不受影响。' +
+        '<details class="agent-error-detail"><summary>查看 AI 请求状态</summary><p>' +
+        escapeHtml(error.message) + '</p></details>';
+    }
+    finishPlanProgress(true, '保底路径可用 · AI 增强未完成');
+  }
+
   if (generatePlanButton) generatePlanButton.disabled = false;
 });
 
@@ -655,7 +714,7 @@ function renderPlanResult(data, days, minutes) {
   const note = document.getElementById('plan-agent-result');
 
   if (title) title.textContent = data.title || (days + ' 天学习计划');
-  if (status) status.textContent = '真实 Agent 已生成';
+  // status 文案由调用方根据「AI 生成 / 本地保底」来源统一设置，渲染函数不再覆盖。
   if (priority1) priority1.textContent = data.highestPriority || '待诊断';
   if (priority2) priority2.textContent = data.secondPriority || '待诊断';
   if (stable) stable.textContent = data.stable || '待诊断';
@@ -835,30 +894,7 @@ document.getElementById('review-next')?.addEventListener('click', async () => {
 
   reviewStep += 1;
   renderMistake();
-
-  try {
-    const raw = await callAgent('mistake',
-      '错题标题：' + data.title + '\n' +
-      '原错题：' + data.question + '\n' +
-      '学生选择：' + (data.chosen || '') + '\n' +
-      '错误原因线索：' + (data.reason || '') + '\n' +
-      '知识点：' + (data.knowledge || '') + '\n' +
-      '错误类型：' + (data.error || '') + '\n' +
-      '当前复盘阶段：第 ' + reviewStep + '/5。\n' +
-      '请返回完整 JSON，字段：reason,knowledge,errorType,evidence,basic,variant,comprehensive,masteryCheck。'
-    );
-    const parsed = parseAgentJson(raw);
-    Object.assign(data, parsed);
-    data.error = parsed.errorType || data.error;
-    mistakeData[currentMistake] = data;
-    saveMistakes();
-    renderMistake();
-  } catch (error) {
-    const stageText = document.getElementById('review-stage-text');
-    if (stageText) {
-      stageText.innerHTML = '<b>本阶段先使用已有诊断</b><br>' + escapeHtml(error.message);
-    }
-  }
+  // 阶段推进不再重复调用 AI；错因分析由「AI分析这道错题」按钮按需触发一次。
 });
 
 
@@ -871,20 +907,20 @@ const skillQuestionBank = {
     {id:'yf-e2',level:0,label:'基础题',question:'一次函数 y = -3x + 5 中，x = 0 时 y 的值是多少？',options:{A:'-3',B:'0',C:'3',D:'5'},answer:'D',explanation:'当 x=0 时，y=b=5。'},
     {id:'yf-m1',level:1,label:'中等题',question:'一次函数 y = 2x + b 经过点（1，4），求 b。',options:{A:'1',B:'2',C:'3',D:'4'},answer:'B',explanation:'把点（1，4）代入解析式。'},
     {id:'yf-m2',level:1,label:'中等题',question:'直线 y = kx - 2 经过点（3，4），若 x 增加 2，则 y 增加多少？',options:{A:'2',B:'4',C:'6',D:'8'},answer:'B',explanation:'先求 k=2，再用 Δy=kΔx。'},
-    {id:'yf-c1',level:2,label:'困难题',question:'一次函数 y = kx + b 经过 A(1,3)、B(3,7)，求其 x 轴截距。',options:{A:'-1/2',B:'1/2',C:'2',D:'3'},answer:'A',explanation:'由两点求出 k=2、b=1，再令 y=0。'},
-    {id:'yf-c2',level:2,label:'困难题',question:'某直线与 x 轴交于（2，0），与 y 轴交于（0，-4）。若点 P 在该直线上且横坐标为 3，求 P 的纵坐标。',options:{A:'-2',B:'-1',C:'1',D:'2'},answer:'D',explanation:'先根据两个截距确定解析式，再代入 x=3。'},
-    {id:'yf-v1',level:3,label:'拔尖题',question:'某一次函数经过点 A(2,0)，且图象与两坐标轴围成的三角形面积为4。若 x 轴截距固定为2，求所有可能的 y 轴截距。',options:{A:'1',B:'2',C:'±2',D:'4'},answer:'C',explanation:'保持一次函数核心技能，但从求参数改为由几何面积反推参数并处理两种可能。'},
-    {id:'yf-v2',level:3,label:'拔尖题',question:'一次函数图象经过点（1，2），把“求 y 轴截距”改成“已知 y 轴截距为 -1，反求 x 轴截距”。若斜率为 3，答案是多少？',options:{A:'1/3',B:'2/3',C:'1',D:'-1/3'},answer:'A',explanation:'改变了解题入口，从正向求参数改为利用截距条件反推另一截距。'}
+    {id:'yf-c1',level:2,label:'综合题',question:'一次函数 y = kx + b 经过 A(1,3)、B(3,7)，求其 x 轴截距。',options:{A:'-1/2',B:'1/2',C:'2',D:'3'},answer:'A',explanation:'由两点求出 k=2、b=1，再令 y=0。'},
+    {id:'yf-c2',level:2,label:'综合题',question:'某直线与 x 轴交于（2，0），与 y 轴交于（0，-4）。若点 P 在该直线上且横坐标为 3，求 P 的纵坐标。',options:{A:'-2',B:'-1',C:'1',D:'2'},answer:'D',explanation:'先根据两个截距确定解析式，再代入 x=3。'},
+    {id:'yf-v1',level:3,label:'变式题',question:'某一次函数经过点 A(2,0)，且图象与两坐标轴围成的三角形面积为4。若 x 轴截距固定为2，求所有可能的 y 轴截距。',options:{A:'1',B:'2',C:'±2',D:'4'},answer:'C',explanation:'保持一次函数核心技能，但从求参数改为由几何面积反推参数并处理两种可能。'},
+    {id:'yf-v2',level:3,label:'变式题',question:'一次函数图象经过点（1，2），把“求 y 轴截距”改成“已知 y 轴截距为 -1，反求 x 轴截距”。若斜率为 3，答案是多少？',options:{A:'1/3',B:'2/3',C:'1',D:'-1/3'},answer:'A',explanation:'改变了解题入口，从正向求参数改为利用截距条件反推另一截距。'}
   ],
   '几何证明': [
     {id:'geo-e1',level:0,label:'基础题',question:'在 △ABC 中，AB = AC，∠A = 40°。则 ∠B 与 ∠C 的大小关系是（）。',options:{A:'∠B>∠C',B:'∠B<∠C',C:'∠B=∠C',D:'无法确定'},answer:'C',explanation:'等腰三角形的两个底角相等。'},
     {id:'geo-e2',level:0,label:'基础题',question:'若两个三角形有两边分别相等，且这两边的夹角也相等，可以用哪种方法判断它们全等？',options:{A:'SSS',B:'SAS',C:'ASA',D:'AAS'},answer:'B',explanation:'两边及其夹角对应相等是 SAS。'},
     {id:'geo-m1',level:1,label:'中等题',question:'在 △ABC 中，AB = AC，AD 是 ∠A 的角平分线。证明 BD = CD 时，除 AB=AC 和 ∠BAD=∠CAD 外，还需要利用（）。',options:{A:'BD=CD',B:'BC=BC',C:'AD=AD',D:'∠B=∠C'},answer:'C',explanation:'比较 △ABD 与 △ACD，还需要公共边 AD=AD。'},
     {id:'geo-m2',level:1,label:'中等题',question:'证明两三角形全等后，若要推出一组对应边相等，应使用的结论是（）。',options:{A:'对应角相等',B:'对应边相等',C:'内角和相等',D:'面积一定不同'},answer:'B',explanation:'全等三角形的对应边、对应角分别相等。'},
-    {id:'geo-c1',level:2,label:'困难题',question:'在等腰三角形 ABC 中，AB=AC，D、E 分别在 AB、AC 上，且 AD=AE。要证明 BD=CE，最自然的比较对象是（）。',options:{A:'△ABD 与 △ACE',B:'△ABC 与 △ADE',C:'△ABD 与 △ABC',D:'△ADE 与 △ABC'},answer:'A',explanation:'目标是 BD 与 CE，应该寻找分别包含这两条线段的两个三角形。'},
-    {id:'geo-c2',level:2,label:'困难题',question:'在 △ABC 中，AB=AC，AD⊥BC。若要证明 BD=CD，除等腰条件外，AD⊥BC 最直接提供的条件是（）。',options:{A:'AB=BC',B:'∠ADB=∠ADC',C:'∠A=90°',D:'BD=DC'},answer:'B',explanation:'垂直关系使两个直角对应相等，再结合公共边和等腰条件比较两个三角形。'},
-    {id:'geo-v1',level:3,label:'拔尖题',question:'把“AB=AC，AD 是角平分线，证明 BD=CD”改成反向判断：已知 AB=AC，且 BD=CD。若 D 在 BC 上，想证明 AD 是 ∠A 的角平分线，应寻找哪类新的三角形全等依据？',options:{A:'只证明 AD=BC',B:'比较 △ABD 与 △ACD',C:'只证明 ∠B=∠C',D:'比较 △ABC 与 △BCD'},answer:'B',explanation:'这是逆向迁移：由目标角平分线反推需要证明的对应角，再比较同一对三角形。'},
-    {id:'geo-v2',level:3,label:'拔尖题',question:'在证明题中，原目标是“证明 BD=CD”。如果题目额外给出 ∠BAD=∠CAD，但没有给 AB=AC，你应该优先寻找哪一种替代条件？',options:{A:'AD=AD',B:'AB=AC 之外的另一个独立边角条件',C:'BD=CD',D:'BC=BC 直接作为结论'},answer:'B',explanation:'改变条件后不能机械照搬原证明，需要重新寻找足以判定两三角形全等的独立条件。'}
+    {id:'geo-c1',level:2,label:'综合题',question:'在等腰三角形 ABC 中，AB=AC，D、E 分别在 AB、AC 上，且 AD=AE。要证明 BD=CE，最自然的比较对象是（）。',options:{A:'△ABD 与 △ACE',B:'△ABC 与 △ADE',C:'△ABD 与 △ABC',D:'△ADE 与 △ABC'},answer:'A',explanation:'目标是 BD 与 CE，应该寻找分别包含这两条线段的两个三角形。'},
+    {id:'geo-c2',level:2,label:'综合题',question:'在 △ABC 中，AB=AC，AD⊥BC。若要证明 BD=CD，除等腰条件外，AD⊥BC 最直接提供的条件是（）。',options:{A:'AB=BC',B:'∠ADB=∠ADC',C:'∠A=90°',D:'BD=DC'},answer:'B',explanation:'垂直关系使两个直角对应相等，再结合公共边和等腰条件比较两个三角形。'},
+    {id:'geo-v1',level:3,label:'变式题',question:'把“AB=AC，AD 是角平分线，证明 BD=CD”改成反向判断：已知 AB=AC，且 BD=CD。若 D 在 BC 上，想证明 AD 是 ∠A 的角平分线，应寻找哪类新的三角形全等依据？',options:{A:'只证明 AD=BC',B:'比较 △ABD 与 △ACD',C:'只证明 ∠B=∠C',D:'比较 △ABC 与 △BCD'},answer:'B',explanation:'这是逆向迁移：由目标角平分线反推需要证明的对应角，再比较同一对三角形。'},
+    {id:'geo-v2',level:3,label:'变式题',question:'在证明题中，原目标是“证明 BD=CD”。如果题目额外给出 ∠BAD=∠CAD，但没有给 AB=AC，你应该优先寻找哪一种替代条件？',options:{A:'AD=AD',B:'AB=AC 之外的另一个独立边角条件',C:'BD=CD',D:'BC=BC 直接作为结论'},answer:'B',explanation:'改变条件后不能机械照搬原证明，需要重新寻找足以判定两三角形全等的独立条件。'}
   ]
 };
 
@@ -942,7 +978,8 @@ function isDuplicateQuestion(question) {
 }
 
 function difficultyLabel(level, suffix = true) {
-  const labels = ['基础题','中等题','困难题','拔尖题'];
+  // 难度体系统一为：基础题 → 中等题 → 综合题 → 变式题（产品定义）
+  const labels = ['基础题','中等题','综合题','变式题'];
   return labels[Math.max(0, Math.min(3, Number(level) || 0))] + (suffix ? '' : '');
 }
 
@@ -979,24 +1016,22 @@ function topicMatchesQuestion(topic, q) {
   return true;
 }
 
+
 function selectLocalQuestion() {
   const topic = currentSkillTopic();
-  const imported = importedJuniorHighBank();
-  const topicBank = imported.filter(q => topicMatchesQuestion(topic, q));
-  const localBank = skillQuestionBank[topic] || genericQuestionBank;
-  const bank = topicBank.length ? topicBank : (imported.length ? imported : localBank);
+  const bank = skillQuestionBank[topic] || genericQuestionBank;
   const target = Math.max(0, Math.min(3, skillLevelIndex));
-
   const unused = bank.filter(q => q.level === target && !isDuplicateQuestion(q.question));
   if (unused.length) return unused[Math.floor(Math.random() * unused.length)];
 
-  const anyUnused = bank.filter(q => !isDuplicateQuestion(q.question));
-  if (anyUnused.length) {
-    return anyUnused.sort((a,b) => Math.abs(a.level - target) - Math.abs(b.level - target))[0];
-  }
+  const nearby = bank.filter(q => q.level === target && !isDuplicateQuestion(q.question));
+  if (nearby.length) return nearby[0];
 
-  // 全部做过后允许复习，但明确标记为复习题。
-  const review = bank.find(q => q.level === target) || bank[0] || localBank[0] || genericQuestionBank[0];
+  const anyUnused = bank.filter(q => !isDuplicateQuestion(q.question));
+  if (anyUnused.length) return anyUnused.sort((a,b)=>Math.abs(a.level-target)-Math.abs(b.level-target))[0];
+
+  // 题库全部做完后允许从最高优先级题目重练，但会明确标记为复习，而不是新题。
+  const review = bank.find(q => q.level === target) || bank[0] || genericQuestionBank[0];
   return { ...review, reviewOnly: true };
 }
 
@@ -1081,8 +1116,6 @@ function renderSkillQuestion() {
   const topic = currentSkillTopic();
   const topicTitle = document.getElementById('skill-topic-title');
   if (topicTitle) topicTitle.textContent = topic + ' · 自适应训练';
-  const bankCount = document.getElementById('skill-bank-count');
-  if (bankCount) bankCount.textContent = (Array.isArray(window.YINCaiJuniorHighMathBank) ? window.YINCaiJuniorHighMathBank.length : 0) + ' 道初中题';
 
   if(!q){
     document.getElementById('skill-level-title').textContent='等待生成';
@@ -1111,7 +1144,7 @@ function renderSkillQuestion() {
   document.getElementById('skill-mastery').textContent=skillAttempts ? skillMastery+'%' : '--';
   document.getElementById('skill-decision-pill').textContent=skillAnswered?'本题已完成':skillLoading?'AI正在出题':'自适应训练中';
   document.getElementById('skill-decision-text').textContent=skillAnswered?'当前题目已保留。你可以回看后再进入下一题。':skillLoading?'正在根据你的学情和历史表现选择题目。':'下一题会根据这道题的答题表现升难或降难。';
-  document.getElementById('skill-next-level').textContent=skillAnswered?'下一题将综合最新表现':(['基础题','中等题','困难题','拔尖题'][Math.min(3,skillLevelIndex+1)]||'保持当前难度');
+  document.getElementById('skill-next-level').textContent=skillAnswered?'下一题将综合最新表现':(['基础题','中等题','综合题','变式题'][Math.min(3,skillLevelIndex+1)]||'保持当前难度');
 
   const hasChoiceOptions = q.options && ['A','B','C','D'].every(k => q.options[k]);
   if (!hasChoiceOptions || q.inputType === 'text') {
@@ -1143,19 +1176,86 @@ function renderSkillQuestion() {
   }
 }
 
+async function generateAISkillQuestion() {
+  const topic = currentSkillTopic();
+  const recent = skillHistory.slice(-6).map(item =>
+    (item.correct ? '对' : '错') + '·' + (item.label || '训练题')
+  ).join('，') || '无';
+  const mistakes = Object.values(mistakeData).slice(-3).map(item => item.title).join('；') || '无';
+  const usedQuestions = skillHistory.map(item => item.question).join('\\n');
+  const levelNames = ['基础题','中等题','综合题','变式题'];
+
+  const raw = await callAgent('skill',
+    '训练知识点：' + topic + '\\n' +
+    '当前掌握度：' + (skillAttempts ? skillMastery + '%' : '尚无数据，从基础难度开始') + '\\n' +
+    '当前训练难度：' + levelNames[Math.min(3, skillLevelIndex)] + '\\n' +
+    '连续答对：' + skillStreak + '\\n' +
+    '最近表现：' + recent + '\\n' +
+    '错题记录：' + mistakes + '\\n' +
+    (profile ? '学生情况：' + (profile.grade || '') + ' ' + (profile.subject || '') + '，自述薄弱点：' + (profile.state || '未填写') + '\\n' : '') +
+    '已做过且严禁重复（也不能只换数字）的题目：\\n' + (usedQuestions || '无') + '\\n' +
+    '请根据以上真实表现决定下一题的难度与题型，并生成一道真正不同的新题。'
+  );
+
+  const parsed = parseSkillQuestion(raw);
+  if (!parsed) throw new Error('AI 出题格式无法解析');
+  if (isDuplicateQuestion(parsed.question)) throw new Error('AI 生成了重复题目');
+  return parsed;
+}
+
 async function requestDynamicSkillQuestion(lastCorrect) {
   if (!profile) {
     showToast('先完成首次学情设置');
     return;
   }
 
-  // 技能训练的“出题”不再把模型 API 当成单点故障：本地自适应引擎立即选题。
-  setSkillGeneration(true, '正在为你选择训练题…', '正在综合当前薄弱知识点、连续答对次数和错题记录。');
+  // AI 优先出题；首题 5 秒内必须出现，后续题允许 AI 稍久一点。
+  setSkillGeneration(true, 'AI 正在为你出题…', '正在综合薄弱知识点、掌握度、连续答对和错题记录。');
   renderSkillQuestion();
 
-  const selected = selectLocalQuestion();
-  await new Promise(resolve => setTimeout(resolve, 250));
+  const deadlineMs = skillQuestionNo === 0 ? 4000 : 8000;
+  let aiQuestion = null;
+  let aiError = null;
+  try {
+    aiQuestion = await Promise.race([
+      generateAISkillQuestion(),
+      new Promise((_, reject) => setTimeout(
+        () => reject(new Error('AI 出题超过 ' + Math.round(deadlineMs / 1000) + ' 秒')),
+        deadlineMs
+      ))
+    ]);
+  } catch (error) {
+    aiError = error;
+  }
 
+  const levelMap = {'基础题':0,'中等题':1,'综合题':2,'变式题':3};
+  const feedback = document.getElementById('skill-feedback');
+
+  if (aiQuestion) {
+    dynamicSkillQuestion = {
+      ...aiQuestion,
+      id: 'ai-' + Date.now(),
+      level: levelMap[aiQuestion.level] !== undefined ? levelMap[aiQuestion.level] : skillLevelIndex,
+      source: 'ai'
+    };
+    skillLevelIndex = dynamicSkillQuestion.level;
+    skillQuestionNo += 1;
+    skillAnswered = false;
+    skillAnswerCorrect = null;
+    selectedSkillOption = '';
+    setSkillGeneration(false);
+    if (feedback) {
+      feedback.className = 'skill-feedback correct';
+      feedback.innerHTML = '<span>AI 已根据你的真实表现出题</span><p>' +
+        escapeHtml(aiQuestion.explanation || '题目难度由 AI 结合你的表现决定。') + '</p>';
+    }
+    renderSkillQuestion();
+    return;
+  }
+
+  // 本地兜底：AI 失败、超时或生成重复题时，使用自适应题库并明确标识。
+  const selected = selectLocalQuestion();
+  await new Promise(resolve => setTimeout(resolve, 200));
   dynamicSkillQuestion = {
     ...selected,
     level: typeof selected.level === 'number' ? selected.level : skillLevelIndex,
@@ -1166,12 +1266,11 @@ async function requestDynamicSkillQuestion(lastCorrect) {
   skillAnswerCorrect = null;
   selectedSkillOption = '';
   setSkillGeneration(false);
-
-  const feedback=document.getElementById('skill-feedback');
-  if(feedback){
-    feedback.className='skill-feedback correct';
-    feedback.innerHTML='<span>已根据你的表现选题</span><p>' +
-      escapeHtml((selected.reviewOnly ? '题库已进入复习循环。' : '本题从当前重点知识点的自适应题库中选择，答题后系统会调整下一题难度。')) +
+  if (feedback) {
+    feedback.className = 'skill-feedback';
+    feedback.innerHTML = '<span>AI 增强失败 · 使用自适应题库</span><p>' +
+      escapeHtml((aiError ? aiError.message + '；' : '') +
+      (selected.reviewOnly ? '题库已进入复习循环。' : '本题从当前重点知识点的自适应题库中选择，答题后系统会调整下一题难度。')) +
       '</p>';
   }
   renderSkillQuestion();
@@ -1404,10 +1503,11 @@ const loadStatus = document.getElementById('load-status');
 
 
 
-async function callAgent(agent, context) {
+async function callAgent(agent, context, timeoutMs) {
+  const deadline = timeoutMs || 25000;
   let response;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 25000);
+  const timeoutId = setTimeout(() => controller.abort(), deadline);
 
   try {
     response = await fetch(AGENT_API_URL, {
@@ -1418,7 +1518,7 @@ async function callAgent(agent, context) {
     });
   } catch (error) {
     if (error.name === 'AbortError') {
-      throw new Error('AI 请求超过 25 秒仍未完成。核心学习流程不会被阻塞，请稍后重试。');
+      throw new Error('AI 请求超过 ' + Math.round(deadline / 1000) + ' 秒仍未完成。核心学习流程不会被阻塞，请稍后重试。');
     }
     throw new Error('无法连接学习 Agent 后端（127.0.0.1:8080）。请确认 Spring Boot 已重新启动。');
   } finally {
@@ -1488,40 +1588,84 @@ function refreshFirstUseStats() {
   const streak = Number(localStorage.getItem(STREAK_KEY) || 0);
   const streakNode = document.getElementById('motivation-streak');
   if (streakNode) streakNode.textContent = streak + ' 天';
+  // 完成度来自真实答题记录，不再写死
+  const pct = todayCompletePercent();
+  const completeNode = document.getElementById('motivation-complete');
+  if (completeNode) completeNode.textContent = pct + '%';
   const bar = document.getElementById('motivation-complete-bar');
-  if (bar) bar.style.width = '0%';
+  if (bar) bar.style.width = pct + '%';
   if (loadBar) loadBar.style.width = mistakesCount ? '30%' : '0%';
   if (loadValue) loadValue.textContent = mistakesCount ? '30%' : '--';
   if (loadStatus) loadStatus.textContent = mistakesCount ? '开始关注' : '等待学习';
 }
 refreshFirstUseStats();
 
+// 学习激励：完成度来自真实答题数据，不再写死。
+function todayCompletedTasks() {
+  const today = new Date().toISOString().slice(0, 10);
+  return skillHistory.filter(item => (item.createdAt || '').slice(0, 10) === today).length;
+}
+
+function todayCompletePercent() {
+  const target = 5; // 每天默认 5 道高价值训练题
+  return Math.min(100, Math.round((todayCompletedTasks() / target) * 100));
+}
+
+function buildLocalMotivation(complete, streak, mistakesCount) {
+  const pct = Number(String(complete).replace('%', '')) || 0;
+  if (pct >= 90) {
+    return {
+      title: '建议：收尾',
+      reason: '今日任务已基本完成。把剩余时间留给错题复盘或休息，不建议为了“完成更多”再堆新任务。'
+    };
+  }
+  if (streak >= 3 && mistakesCount > 0) {
+    return {
+      title: '建议：维持',
+      reason: '你已经连续学习 ' + streak + ' 天。今天只处理 ' + mistakesCount + ' 道待复盘错题，不加新内容，保住学习连续性。'
+    };
+  }
+  return {
+    title: '建议：继续',
+    reason: '今日完成度还有空间。优先完成当前重点知识点训练，不必追加额外任务。'
+  };
+}
+
 async function requestMotivationAgent() {
-  const complete = document.getElementById('motivation-complete')?.textContent || '80%';
-  const reason = await callAgent('motivation',
-    profileContext() + '\n' +
-    '今日完成度：' + complete + '\n' +
-    '连续学习：' + (Number(localStorage.getItem(STREAK_KEY) || 0)) + ' 天。\n' +
-    '待复盘错题：' + Object.keys(mistakeData).length + ' 道。\n' +
-    '今天主要高优先级任务：根据当前学生情况判断。\n' +
-    '请判断今天应该继续、维持还是收尾，并给出最小必要任务。'
-  );
-  motivationTitle.textContent = reason.split('\n')[0] || reason;
-  motivationReason.textContent = reason;
-  motivationStatus.textContent = reason.startsWith('建议：收尾') ? '建议收尾' : 'AI已重新评估';
+  const complete = todayCompletePercent() + '%';
+  const streak = Number(localStorage.getItem(STREAK_KEY) || 0);
+  const mistakesCount = Object.keys(mistakeData).length;
+  try {
+    const reason = await callAgent('motivation',
+      profileContext() + '\n' +
+      '今日完成度：' + complete + '（来自真实答题记录）。\n' +
+      '连续学习：' + streak + ' 天。\n' +
+      '待复盘错题：' + mistakesCount + ' 道。\n' +
+      '今天主要高优先级任务：根据当前学生情况判断。\n' +
+      '请判断今天应该继续、维持还是收尾，并给出最小必要任务。'
+    );
+    motivationTitle.textContent = reason.split('\n')[0] || reason;
+    motivationReason.textContent = reason;
+    motivationStatus.textContent = reason.startsWith('建议：收尾') ? '建议收尾' : 'AI已重新评估';
+  } catch (error) {
+    // AI 失败时使用本地规则保底判断，并明确标识。
+    const local = buildLocalMotivation(complete, streak, mistakesCount);
+    motivationTitle.textContent = local.title;
+    motivationReason.textContent = local.reason + '（AI 暂时不可用：' + error.message + '）';
+    motivationStatus.textContent = '保底判断 · AI 不可用';
+    throw error;
+  }
 }
 
 document.getElementById('finish-one-task')?.addEventListener('click', async () => {
-  if (motivationComplete) {
-    motivationComplete.textContent = '100%';
-    motivationBar.style.width = '100%';
-  }
+  // 完成度以真实答题记录为准，不再写死为 100%。
+  refreshFirstUseStats();
   try {
     await requestMotivationAgent();
     motivationStatus.classList.add('done');
     showToast('学习激励 Agent 已重新评估：今天可以收尾或维持');
   } catch (error) {
-    showToast('学习负荷分析失败');
+    showToast('AI 分析失败，已显示保底判断');
   }
 });
 
@@ -1663,6 +1807,8 @@ function bindOnboarding() {
     };
     saveProfile(nextProfile);
     renderProfile();
+    renderSkillQuestion();
+    refreshFirstUseStats();
     closeOnboarding();
     showToast('学习画像已建立，正在生成第一次学情诊断');
     showPage('analysis');
@@ -1715,10 +1861,6 @@ renderSkillQuestion();
 
 if (profile) {
   skillMastery = Number(profile.skillMastery || 0);
-  if (profile.diagnosis) {
-    setTimeout(() => {
-    }, 250);
-  }
 } else {
   setTimeout(openOnboarding, 120);
 }

@@ -98,43 +98,93 @@ public class ChatService {
     }
 
     public String chatWithJsonPrompt(String systemPrompt, String userPrompt) {
+        return chatWithJsonPrompt(systemPrompt, userPrompt, null);
+    }
+
+    /**
+     * 结构化 Agent 调用。
+     * requiredFields 为约定 schema 的必需字段；模型第一次返回缺字段时，
+     * 携带缺失信息重试一次，仍失败则抛出真实错误，绝不允许把格式异常
+     * 的结果伪装成成功返回给前端。
+     */
+    public String chatWithJsonPrompt(String systemPrompt, String userPrompt, java.util.List<String> requiredFields) {
         validateConfiguration();
 
-        try {
-            var body = objectMapper.createObjectNode();
-            body.put("model", model);
-            body.put("temperature", 0.1);
-            body.put("max_tokens", 900);
+        String lastAnswer = null;
+        String missingFields = null;
 
-            var thinking = body.putObject("thinking");
-            thinking.put("type", "disabled");
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                String prompt = userPrompt + "\n\n请立即返回完整 JSON 对象。";
+                if (missingFields != null) {
+                    prompt += "\n你上一次返回缺少这些必需字段：" + missingFields
+                            + "。请严格按照要求的 JSON 结构重新返回，不要返回 Markdown 或自定义字段名。";
+                }
 
-            var responseFormat = body.putObject("response_format");
-            responseFormat.put("type", "json_object");
+                var body = objectMapper.createObjectNode();
+                body.put("model", model);
+                body.put("temperature", 0.1);
+                body.put("max_tokens", 900);
 
-            var messages = body.putArray("messages");
+                var thinking = body.putObject("thinking");
+                thinking.put("type", "disabled");
 
-            var system = messages.addObject();
-            system.put("role", "system");
-            system.put("content",
-                    systemPrompt
-                            + "\n\n只输出一个完整合法的 JSON 对象。"
-                            + "\n不要 Markdown、不要代码块、不要额外解释文字。");
+                var responseFormat = body.putObject("response_format");
+                responseFormat.put("type", "json_object");
 
-            var user = messages.addObject();
-            user.put("role", "user");
-            user.put("content", userPrompt
-                    + "\n\n请立即返回完整 JSON 对象。");
+                var messages = body.putArray("messages");
 
-            String answer = sendRequest(body);
-            String normalized = normalizeJson(answer);
-            if (normalized == null) {
-                throw new RuntimeException("模型返回内容不是合法 JSON");
+                var system = messages.addObject();
+                system.put("role", "system");
+                system.put("content",
+                        systemPrompt
+                                + "\n\n只输出一个完整合法的 JSON 对象。"
+                                + "\n不要 Markdown、不要代码块、不要额外解释文字、不要自定义字段名。");
+
+                var user = messages.addObject();
+                user.put("role", "user");
+                user.put("content", prompt);
+
+                String answer = sendRequest(body);
+                lastAnswer = answer;
+                String normalized = normalizeJson(answer);
+                if (normalized == null) {
+                    missingFields = "整个 JSON 对象";
+                    continue;
+                }
+
+                if (requiredFields == null || requiredFields.isEmpty()) {
+                    return normalized;
+                }
+
+                JsonNode node;
+                try {
+                    node = objectMapper.readTree(normalized);
+                } catch (Exception parseEx) {
+                    missingFields = "整个 JSON 对象";
+                    continue;
+                }
+                java.util.List<String> missing = new java.util.ArrayList<>();
+                for (String field : requiredFields) {
+                    JsonNode value = node.get(field);
+                    if (value == null || value.isNull()
+                            || (value.isTextual() && value.asText().isBlank())) {
+                        missing.add(field);
+                    }
+                }
+                if (missing.isEmpty()) {
+                    return normalized;
+                }
+                missingFields = String.join(", ", missing);
+            } catch (RuntimeException ex) {
+                if (attempt == 2) {
+                    throw new RuntimeException("Agent 结构化调用失败：" + safeMessage(ex), ex);
+                }
             }
-            return normalized;
-        } catch (RuntimeException ex) {
-            throw new RuntimeException("Agent 结构化调用失败：" + safeMessage(ex), ex);
         }
+
+        throw new RuntimeException(
+                "模型连续两次返回的结构都不符合约定 schema（缺失：" + missingFields + "）");
     }
 
     private String safeMessage(RuntimeException ex) {

@@ -144,14 +144,22 @@ public class AgentController {
         }
 
         try {
-            boolean structured = "analysis".equals(request.getAgent())
-                    || "plan".equals(request.getAgent())
-                    || "skill".equals(request.getAgent())
-                    || "mistake".equals(request.getAgent());
-
-            String answer = structured
-                    ? chatService.chatWithJsonPrompt(systemPrompt, context)
-                    : chatService.chatWithPrompt(systemPrompt, context);
+            String answer;
+            switch (request.getAgent()) {
+                case "analysis" -> answer = chatService.chatWithJsonPrompt(
+                        systemPrompt, context,
+                        java.util.List.of("summary", "priorities", "recommendedAction"));
+                case "plan" -> answer = chatService.chatWithJsonPrompt(
+                        systemPrompt, context,
+                        java.util.List.of("weeks"));
+                case "skill" -> answer = chatService.chatWithJsonPrompt(
+                        systemPrompt, context,
+                        java.util.List.of("question", "options", "answer"));
+                case "mistake" -> answer = chatService.chatWithJsonPrompt(
+                        systemPrompt, context,
+                        java.util.List.of("reason", "knowledge", "errorType"));
+                default -> answer = chatService.chatWithPrompt(systemPrompt, context);
+            }
 
             return ResponseEntity.ok(new AgentResponse(answer));
         } catch (IllegalStateException ex) {

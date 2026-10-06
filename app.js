@@ -664,39 +664,73 @@ function evaluateSkillAnswer(correct) {
   }
 }
 
+async function analyzeSkillMistake(q, chosen, mistakeId) {
+  const answer = await callAgent('mistake',
+    profileContext() + '\\n' +
+    '刚刚技能训练题：' + q.question + '\\n' +
+    '正确答案：' + q.answer + '\\n' +
+    '学生选择：' + chosen + '\\n' +
+    '请明确告诉学生：这道题暴露出的知识点是什么、错因是什么、下一步应该补什么。请简洁回答。'
+  );
+
+  if (mistakeData[mistakeId]) {
+    mistakeData[mistakeId].knowledge = answer;
+    mistakeData[mistakeId].reason = answer;
+    saveMistakes();
+    renderMistakeListFromStore();
+  }
+
+  const feedback = document.getElementById('skill-feedback');
+  if (feedback) {
+    feedback.className = 'skill-feedback wrong';
+    feedback.innerHTML = '<span>AI 找到这次卡点</span><p>' + escapeHtml(answer) + '</p>';
+  }
+
+  profile.latestSkillDiagnosis = answer;
+  saveProfile(profile);
+  return answer;
+}
+
 document.getElementById('skill-submit')?.addEventListener('click', async () => {
   const q = dynamicSkillQuestion || skillQuestions[skillLevelIndex];
   if(!selectedSkillOption){ showToast('先选择一个答案'); return; }
+
   const chosen = selectedSkillOption;
   const correct = chosen === q.answer;
+  let mistakeId = null;
+
   if (!correct) {
-    const id = 'mistake-' + Date.now();
-    mistakeData[id] = {
-      id,
-      title: q.level + ' · ' + (profile?.subject || '技能训练'),
+    mistakeId = 'mistake-' + Date.now();
+    mistakeData[mistakeId] = {
+      id: mistakeId,
+      title: q.level + ' · ' + (profile?.primaryTopic || profile?.subject || '技能训练'),
       type: '技能训练错误',
       question: q.question,
-      reason: '学生选择了 ' + chosen + '，正确答案为 ' + q.answer + '。',
-      knowledge: profile?.state || '等待 AI 根据错题进一步定位知识点。',
+      reason: '正在由 AI 分析',
+      knowledge: '正在由 AI 定位',
       error: '答题错误',
-      basic: '围绕同一知识点做一道基础同类题。',
-      variant: '改变条件后再做一道变式题。',
+      basic: '围绕该知识点做一道基础同类题。',
+      variant: '改变条件后做一道变式题。',
       comprehensive: '完成一道综合应用题并解释思路。',
       createdAt: new Date().toLocaleString()
     };
     saveMistakes();
-    currentMistake = id;
+    currentMistake = mistakeId;
     renderMistakeListFromStore();
-
   }
+
   dynamicSkillQuestion = null;
+  selectedSkillOption = '';
   evaluateSkillAnswer(correct);
-  selectedSkillOption='';
+
   try {
+    if (!correct && mistakeId) {
+      await analyzeSkillMistake(q, chosen, mistakeId);
+    }
     await requestDynamicSkillQuestion(correct);
   } catch (error) {
     const feedback = document.getElementById('skill-feedback');
-    if (feedback) feedback.innerHTML = '<span>AI 出题暂时失败</span><p>' + escapeHtml(error.message) + '，先继续使用本地题库。</p>';
+    if (feedback) feedback.innerHTML = '<span>AI 暂时无法继续</span><p>' + escapeHtml(error.message) + '</p>';
   }
 });
 
@@ -1040,6 +1074,10 @@ function bindOnboarding() {
 
 function renderMistakeListFromStore() {
   const list = document.getElementById('mistake-list');
+  const count = Object.keys(mistakeData).length;
+  document.getElementById('mistake-stat-pending')?.replaceChildren(document.createTextNode(String(count)));
+  document.getElementById('mistake-stat-repeat')?.replaceChildren(document.createTextNode('0'));
+  document.getElementById('mistake-stat-retest')?.replaceChildren(document.createTextNode('0'));
   if (!list) return;
   const items = Object.values(mistakeData);
   if (!items.length) {

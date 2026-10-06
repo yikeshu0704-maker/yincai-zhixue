@@ -557,6 +557,13 @@ generatePlanButton?.addEventListener('click', async () => {
 
   startPlanProgress();
 
+  const weekPlanContainer = document.getElementById('week-plan');
+  if (weekPlanContainer) {
+    weekPlanContainer.innerHTML =
+      '<div class="empty-state plan-generating"><b>AI 正在生成你的学习路径…</b><p>正在综合学情、薄弱知识点、考试目标与每日学习时间。</p></div>';
+  }
+  const currentScrollTop = window.scrollY;
+
   try {
     const answer = await callAgent('plan',
       profileContext() + '\\n' +
@@ -567,6 +574,7 @@ generatePlanButton?.addEventListener('click', async () => {
     const data = parseAgentJson(answer);
     renderPlanResult(data, days, minutes);
     if (status) status.textContent = '真实 Agent 已生成';
+    window.scrollTo({ top: currentScrollTop, behavior: 'auto' });
     finishPlanProgress(true, '规划完成：已生成可执行学习阶段');
     showToast('学习路径 Agent 已完成重新规划');
   } catch (error) {
@@ -574,6 +582,7 @@ generatePlanButton?.addEventListener('click', async () => {
     const fallback = buildLocalPlan(days, minutes, goal);
     renderPlanResult(fallback, days, minutes);
     if (status) status.textContent = 'Agent 暂时不可用 · 已生成保底路径';
+    window.scrollTo({ top: currentScrollTop, behavior: 'auto' });
     if (result) {
       result.textContent =
         '本次真实 Agent 调用失败：' + error.message +

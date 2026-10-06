@@ -329,8 +329,8 @@
         <div class="skill-overview panel">
           <div class="skill-topic">
             <span class="eyebrow">当前训练技能</span>
-            <h3 id="skill-topic-title">等待第一次学情诊断</h3>
-            <p>当前掌握度 <b id="skill-mastery">--</b> · 自适应引擎会根据你的表现决定难度</p>
+            <div class="skill-topic-head"><h3 id="skill-topic-title">等待第一次学情诊断</h3><span class="pill" id="skill-bank-count">0 道初中题</span></div>
+            <p>当前掌握度 <b id="skill-mastery">--</b> · 难度会在“基础 → 中等 → 困难 → 拔尖”之间动态调整</p>
           </div>
           <div class="skill-decision">
             <span class="pill" id="skill-decision-pill">等待学情</span>
@@ -341,7 +341,7 @@
         <div class="skill-layout">
           <section class="panel skill-question-panel">
             <div class="panel-head">
-              <div><span class="eyebrow">第 <span id="skill-question-no">0</span> 题</span><h3 id="skill-level-title">综合题</h3></div>
+              <div><span class="eyebrow">第 <span id="skill-question-no">0</span> 题</span><h3 id="skill-level-title">基础题</h3></div>
               <span class="pill" id="skill-level-pill">未开始</span>
             </div>
             <div class="skill-question-box">
@@ -372,17 +372,17 @@
           <section class="panel">
             <div class="panel-head"><h3>动态难度</h3><span class="pill success">实时调整</span></div>
             <div class="difficulty-ladder">
-              <div class="difficulty-step"><span>01</span><div><b>基础题</b><small>概念与直接计算</small></div></div>
+              <div class="difficulty-step"><span>01</span><div><b>基础题</b><small>概念、公式与直接计算</small></div></div>
               <div class="difficulty-connector"></div>
-              <div class="difficulty-step"><span>02</span><div><b>中等题</b><small>两步以内的综合应用</small></div></div>
+              <div class="difficulty-step"><span>02</span><div><b>中等题</b><small>多一步推理与典型应用</small></div></div>
               <div class="difficulty-connector"></div>
-              <div class="difficulty-step"><span>03</span><div><b>综合题</b><small>多条件、跨知识点</small></div></div>
+              <div class="difficulty-step"><span>03</span><div><b>困难题</b><small>多条件、综合推理、较强迁移</small></div></div>
               <div class="difficulty-connector"></div>
-              <div class="difficulty-step"><span>04</span><div><b>变式题</b><small>换条件、换情境、迁移应用</small></div></div>
+              <div class="difficulty-step"><span>04</span><div><b>拔尖题</b><small>竞赛思维、深度迁移、非套路解法</small></div></div>
             </div>
             <div class="skill-rule-card">
               <b>Agent 会怎么决定难度？</b>
-              <p id="skill-rule-text">先根据当前学情选择起始难度；连续答对会逐级升级，答错或标记“不会”会降低一级。</p>
+              <p id="skill-rule-text">先根据当前学情选择起始难度；连续答对会逐级升级，答错或标记“不会”会降低一级。只有真实表现稳定后才进入困难和拔尖题。</p>
             </div>
           </section>
         </div>

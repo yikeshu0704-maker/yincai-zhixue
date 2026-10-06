@@ -464,24 +464,7 @@ const motivationTitle=document.getElementById('motivation-title');
 const motivationReason=document.getElementById('motivation-reason');
 const motivationStatus=document.getElementById('motivation-status');
 
-document.getElementById('finish-one-task')?.addEventListener('click', () => {
-  if(!motivationComplete) return;
-  motivationComplete.textContent='100%';
-  motivationBar.style.width='100%';
-  motivationTitle.textContent='今天已经达到主要目标，不建议再增加新任务。';
-  motivationReason.textContent='当前学习任务已经完成。把剩余时间留给休息或自由复习，不再为了“完成更多”而堆叠负担。';
-  motivationStatus.textContent='今日完成';
-  motivationStatus.classList.add('done');
-  showToast('Agent 已重新评估：今天可以收尾');
-});
 
-document.getElementById('reduce-load')?.addEventListener('click', () => {
-  if(!motivationComplete) return;
-  motivationTitle.textContent='今天只保留 3 道高价值错题复盘，其余任务顺延。';
-  motivationReason.textContent='你已经保持 5 天连续学习。降低今天的任务量不会破坏计划，系统会把未完成内容重新排入后续路径。';
-  motivationStatus.textContent='已降低负担';
-  showToast('已把低优先级任务顺延');
-});
 
 
 const AGENT_API_URL = 'http://localhost:8080/api/agent';

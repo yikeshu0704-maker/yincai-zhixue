@@ -107,8 +107,8 @@ public class ChatService {
                 var body = objectMapper.createObjectNode();
                 body.put("model", model);
                 body.put("temperature", 0.2);
-                body.put("reasoning_effort", "minimal");
-                body.put("max_tokens", 3000);
+                body.put("reasoning_effort", "none");
+                body.put("max_tokens", 2500);
 
                 var responseFormat = body.putObject("response_format");
                 responseFormat.put("type", "json_object");
@@ -119,30 +119,24 @@ public class ChatService {
                 system.put("role", "system");
                 system.put("content",
                         systemPrompt
-                                + "\n\nReturn only one complete valid JSON object."
-                                + "\nDo not output Markdown fences or explanatory text.");
+                                + "\n\n输出要求：只返回一个完整、合法的 json 对象。"
+                                + "不要 Markdown 代码块，不要解释文字，不要省略字段。");
 
                 var user = messages.addObject();
                 user.put("role", "user");
                 user.put("content", userPrompt
-                        + "\n\nReturn one complete JSON object only.");
+                        + "\n\n请严格按 system prompt 中的字段结构输出一个完整 json 对象。");
 
                 String answer = sendRequest(body);
+                String normalized = normalizeJson(answer);
 
-                if (answer != null && !answer.isBlank()) {
-                    try {
-                        objectMapper.readTree(answer);
-                        return answer.trim();
-                    } catch (Exception parseError) {
-                        lastError = new RuntimeException(
-                                "模型返回的 JSON 无法解析（第 " + attempt + " 次）"
-                        );
-                    }
-                } else {
-                    lastError = new RuntimeException(
-                            "模型返回内容为空（第 " + attempt + " 次）"
-                    );
+                if (normalized != null) {
+                    return normalized;
                 }
+
+                lastError = new RuntimeException(
+                        "模型返回内容不是合法 JSON（第 " + attempt + " 次）"
+                );
             } catch (RuntimeException ex) {
                 lastError = ex;
             }
@@ -154,6 +148,72 @@ public class ChatService {
                         : "结构化 Agent 调用失败：" + lastError.getMessage(),
                 lastError
         );
+    }
+
+    private String normalizeJson(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+
+        String cleaned = raw.trim()
+                .replace("\u0060\u0060\u0060json", "")
+                .replace("\u0060\u0060\u0060JSON", "")
+                .replace("\u0060\u0060\u0060", "")
+                .trim();
+
+        try {
+            JsonNode direct = objectMapper.readTree(cleaned);
+            if (direct != null && direct.isObject()) {
+                return objectMapper.writeValueAsString(direct);
+            }
+        } catch (Exception ignored) {
+            // 尝试从前后杂讯中提取第一个完整 JSON 对象。
+        }
+
+        int start = cleaned.indexOf('{');
+        if (start < 0) {
+            return null;
+        }
+
+        boolean inString = false;
+        boolean escaped = false;
+        int depth = 0;
+
+        for (int i = start; i < cleaned.length(); i++) {
+            char c = cleaned.charAt(i);
+
+            if (inString) {
+                if (escaped) {
+                    escaped = false;
+                } else if (c == '\\') {
+                    escaped = true;
+                } else if (c == '"') {
+                    inString = false;
+                }
+                continue;
+            }
+
+            if (c == '"') {
+                inString = true;
+            } else if (c == '{') {
+                depth++;
+            } else if (c == '}') {
+                depth--;
+                if (depth == 0) {
+                    String candidate = cleaned.substring(start, i + 1);
+                    try {
+                        JsonNode node = objectMapper.readTree(candidate);
+                        if (node != null && node.isObject()) {
+                            return objectMapper.writeValueAsString(node);
+                        }
+                    } catch (Exception ignored) {
+                        return null;
+                    }
+                }
+            }
+        }
+
+        return null;
     }
 
     public String chatWithPrompt(String systemPrompt, String userPrompt) {

@@ -361,7 +361,6 @@ function renderDiagnosisResult(data) {
   const skillTitle = document.getElementById('skill-topic-title');
   if (skillTitle && data.priorities?.[0]?.name) skillTitle.textContent = data.priorities[0].name + ' · AI训练';
   showToast('学情诊断已更新');
-  requestDynamicSkillQuestion(false).catch(() => {});
 }
 
 let analysisProgressTimer = null;
@@ -405,6 +404,44 @@ function finishAnalysisProgress(success, message) {
   if (text) text.textContent = message;
 }
 
+function buildFallbackDiagnosis() {
+  const text = String(profile?.state || '');
+  const priorities = [];
+
+  if (/函数|一次函数|函数综合|反比例/.test(text)) {
+    priorities.push({
+      name: '函数综合应用',
+      priority: /综合|经常|错误|不会/.test(text) ? '高' : '中',
+      mastery: null,
+      evidence: '来自学生自述中的函数相关困难；当前缺少足够测试数据，不虚构掌握度。'
+    });
+  }
+
+  if (/几何|证明|三角形|辅助线/.test(text)) {
+    priorities.push({
+      name: '几何证明',
+      priority: /证明|不知道|不会|经常/.test(text) ? '高' : '中',
+      mastery: null,
+      evidence: '来自学生自述中的几何/证明困难；当前缺少足够测试数据，不虚构掌握度。'
+    });
+  }
+
+  if (!priorities.length) {
+    priorities.push({
+      name: profile?.subject || '当前学科',
+      priority: '待诊断',
+      mastery: null,
+      evidence: '首次使用数据不足，先通过技能训练收集真实表现。'
+    });
+  }
+
+  return {
+    summary: '当前先依据你主动填写的学习情况建立第一版学习画像；正式掌握度会随着测试和训练数据逐步修正。',
+    priorities,
+    recommendedAction: '先完成技能训练，收集真实答题表现，再动态更新知识点掌握度。'
+  };
+}
+
 async function runAnalysisAgent() {
   if (!profile) {
     openOnboarding();
@@ -426,10 +463,16 @@ async function runAnalysisAgent() {
     finishAnalysisProgress(true, '诊断完成：学习画像已更新');
     showToast('学情画像已更新');
   } catch (error) {
+    const fallback = buildFallbackDiagnosis();
+    renderDiagnosisResult(fallback);
     const resultNode = document.getElementById('analysis-agent-result');
-    if (resultNode) resultNode.textContent = error.message;
-    finishAnalysisProgress(false, '诊断失败：' + error.message);
-    showToast('学情分析失败');
+    if (resultNode) {
+      resultNode.innerHTML =
+        '<b>第一版画像已建立：</b>真实 Agent 本次未完成。' +
+        '<br><span>原因：' + escapeHtml(error.message) + '</span>';
+    }
+    finishAnalysisProgress(true, '已建立第一版画像 · 等待后续真实训练校正');
+    showToast('AI暂不可用，已用你的真实填写建立第一版画像');
   } finally {
     if (analysisAgentButton) {
       analysisAgentButton.disabled = false;
@@ -578,18 +621,22 @@ generatePlanButton?.addEventListener('click', async () => {
     finishPlanProgress(true, '规划完成：已生成可执行学习阶段');
     showToast('学习路径 Agent 已完成重新规划');
   } catch (error) {
-    // AI 服务异常时不要让学生停在“失败页”，自动生成基于真实画像与时间约束的可执行保底路径。
     const fallback = buildLocalPlan(days, minutes, goal);
     renderPlanResult(fallback, days, minutes);
-    if (status) status.textContent = 'Agent 暂时不可用 · 已生成保底路径';
+    if (status) status.textContent = '真实 Agent 本次失败 · 已生成保底路径';
     window.scrollTo({ top: currentScrollTop, behavior: 'auto' });
     if (result) {
       result.textContent =
-        '本次真实 Agent 调用失败：' + error.message +
-        '。已经根据你的学情、目标和时间约束生成保底路径，不会丢失计划。';
+        '真实 Agent 没有完成本次规划；保底路径已经根据你的学情、目标和时间约束生成。';
     }
-    finishPlanProgress(true, '已生成保底路径；下次可再次尝试真实 Agent');
-    showToast('Agent 暂时不可用，已自动生成可执行路径');
+    const detail = document.getElementById('plan-agent-error');
+    const detailText = document.getElementById('plan-agent-error-text');
+    if (detail && detailText) {
+      detail.hidden = false;
+      detailText.textContent = error.message;
+    }
+    finishPlanProgress(true, '已生成保底路径 · 可查看本次 AI 请求错误');
+    showToast('本次 AI 规划失败，已保留可执行路径');
   } finally {
     if (generatePlanButton) generatePlanButton.disabled = false;
   }
@@ -1385,7 +1432,6 @@ if (profile) {
   skillMastery = Number(profile.skillMastery || 0);
   if (profile.diagnosis) {
     setTimeout(() => {
-      if (!dynamicSkillQuestion) requestDynamicSkillQuestion(false).catch(() => {});
     }, 250);
   }
 } else {

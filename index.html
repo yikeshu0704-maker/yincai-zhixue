@@ -139,6 +139,19 @@
           <div class="analysis-progress-track"><i id="analysis-progress-bar"></i></div>
         </div>
 
+        <section class="panel diagnosis-result-card" id="diagnosis-result-card" hidden>
+          <div class="diagnosis-result-main">
+            <span class="eyebrow">AI 学习画像已更新</span>
+            <h3 id="diagnosis-result-title">等待诊断</h3>
+            <p id="diagnosis-result-summary">AI 完成诊断后，这里会显示你当前最重要的学习判断。</p>
+          </div>
+          <div class="diagnosis-result-priorities" id="diagnosis-result-priorities"></div>
+          <div class="diagnosis-result-next">
+            <span>下一步建议</span>
+            <b id="diagnosis-result-next">等待 AI 生成</b>
+          </div>
+        </section>
+
         <div class="analysis-grid">
           <article class="panel big-panel">
             <div class="panel-head"><h3>知识点掌握地图</h3><span class="pill">AI诊断</span></div>
@@ -328,7 +341,7 @@
         <div class="skill-layout">
           <section class="panel skill-question-panel">
             <div class="panel-head">
-              <div><span class="eyebrow">第 <span id="skill-question-no">1</span> 题</span><h3 id="skill-level-title">综合题</h3></div>
+              <div><span class="eyebrow">第 <span id="skill-question-no">0</span> 题</span><h3 id="skill-level-title">综合题</h3></div>
               <span class="pill" id="skill-level-pill">未开始</span>
             </div>
             <div class="skill-question-box">
@@ -555,6 +568,6 @@
     </section>
   </div>
   <div class="toast" id="toast"></div>
-  <script src="app.js?v=20261007-fix2"></script>
+  <script src="app.js?v=20261007-fix3"></script>
 </body>
 </html>

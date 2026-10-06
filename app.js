@@ -122,6 +122,7 @@ function renderTutorStage() {
 document.getElementById('tutor-next')?.addEventListener('click', () => {
   tutorStage = (tutorStage + 1) % tutorStages.length;
   renderTutorStage();
+});
 
 const analysisAgentButton = document.getElementById('run-analysis-agent');
 analysisAgentButton?.addEventListener('click', async () => {
@@ -148,7 +149,6 @@ analysisAgentButton?.addEventListener('click', async () => {
     analysisAgentButton.disabled = false;
     analysisAgentButton.textContent = 'AI重新诊断';
   }
-});
 });
 document.getElementById('tutor-hint')?.addEventListener('click', () => {
   const s = tutorStages[tutorStage];

@@ -97,6 +97,35 @@ public class ChatService {
         }
     }
 
+    public String chatWithJsonPrompt(String systemPrompt, String userPrompt) {
+        validateConfiguration();
+
+        try {
+            var body = objectMapper.createObjectNode();
+            body.put("model", model);
+            body.put("temperature", 0.2);
+            body.put("max_tokens", 4000);
+
+            var responseFormat = body.putObject("response_format");
+            responseFormat.put("type", "json_object");
+
+            var messages = body.putArray("messages");
+
+            var system = messages.addObject();
+            system.put("role", "system");
+            system.put("content", systemPrompt + "\n\n请严格输出合法 json 对象，不要 Markdown，不要代码块。");
+
+            var user = messages.addObject();
+            user.put("role", "user");
+            user.put("content", userPrompt);
+
+            return sendRequest(body);
+
+        } catch (IllegalArgumentException ex) {
+            throw new RuntimeException("MODEL_BASE_URL 配置无效", ex);
+        }
+    }
+
     public String chatWithPrompt(String systemPrompt, String userPrompt) {
         validateConfiguration();
 

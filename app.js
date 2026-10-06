@@ -665,68 +665,102 @@ function renderMistake() {
   const status = document.getElementById('review-status');
   const next = document.getElementById('review-next');
   const pill = document.getElementById('mastery-pill');
+
   if (!title) return;
+
   if (!data) {
     title.textContent = '等待第一道错题';
-    document.getElementById('mistake-type').textContent = '暂无';
-    document.getElementById('mistake-question').textContent = '完成一道练习并出现真实错误后，这里会显示原题。';
-    document.getElementById('review-stage-title').textContent = '等待真实错题';
-    document.getElementById('review-stage-text').textContent = '先完成一道练习。系统会从你的实际错误开始复盘，而不是预置示例。';
-    document.getElementById('review-status').textContent = '暂无错题';
+    type.textContent = '暂无';
+    question.textContent = '完成一道练习并出现真实错误后，这里会显示原题。';
+    stageTitle.textContent = '等待真实错题';
+    stageText.textContent = '先完成一道练习。系统会从你的实际错误开始复盘，而不是预置示例。';
+    status.textContent = '暂无错题';
     const aiButton = document.getElementById('ai-review-start');
     if (aiButton) aiButton.disabled = true;
     return;
   }
+
   const aiButton = document.getElementById('ai-review-start');
   if (aiButton) aiButton.disabled = false;
-  title.textContent = data.title;
-  type.textContent = data.type;
-  question.textContent = data.question;
+
+  title.textContent = data.title || '错题';
+  type.textContent = data.errorType || data.error || data.type || '待分析';
+  question.textContent = data.question || '';
   if (pill) pill.textContent = reviewStep >= 5 ? '准备再测' : '尚未通过';
-  document.querySelectorAll('.mistake-item').forEach(item => item.classList.toggle('active', item.dataset.mistake === currentMistake));
+
+  document.querySelectorAll('.mistake-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.mistake === currentMistake);
+  });
+
   document.querySelectorAll('.review-step').forEach(node => {
     const n = Number(node.dataset.reviewStep);
     node.classList.toggle('active', n <= reviewStep);
     node.classList.toggle('current', n === reviewStep);
   });
+
   const stages = [
-    ['先找出你为什么错', data.reason],
-    ['定位真正薄弱的知识点', data.knowledge],
-    ['给这次错误贴上“可追踪”的标签', data.error],
-    ['从简单到综合重新练一遍', '先做同类基础题，再做变式题，最后进入综合题。系统会根据正确率决定是否升级难度。'],
-    ['检查是否真正掌握', '通过不同题型后再进行间隔复测。连续通过后，才会把该知识点从“待干预”移动到“稳定掌握”。']
+    ['先找出你为什么错', '<b>错误原因</b>：' + escapeHtml(data.reason || '等待 AI 分析') + '<br><b>证据</b>：' + escapeHtml(data.evidence || '等待 AI 分析')],
+    ['定位真正薄弱的知识点', '<b>核心知识点</b>：' + escapeHtml(data.knowledge || '等待 AI 定位') + '<br><span>后续训练会围绕这个知识点生成，不再泛泛刷题。</span>'],
+    ['给这次错误贴上“可追踪”的标签', '<b>错误类型</b>：' + escapeHtml(data.errorType || data.error || '待判断')],
+    ['从简单到综合重新练一遍', '<b>基础同类题</b>：' + escapeHtml(data.basic || 'AI 将生成') + '<br><b>变式题</b>：' + escapeHtml(data.variant || 'AI 将生成') + '<br><b>综合题</b>：' + escapeHtml(data.comprehensive || 'AI 将生成')],
+    ['检查是否真正掌握', '<b>掌握检验</b>：' + escapeHtml(data.masteryCheck || '先完成不同题型的新题，再进行间隔复测。')]
   ];
+
   const stage = stages[reviewStep - 1];
   stageTitle.textContent = stage[0];
-  stageText.textContent = stage[1];
+  stageText.innerHTML = stage[1];
   status.textContent = '第 ' + reviewStep + '/5 步 · ' + (reviewStep === 5 ? '掌握检验' : '复盘中');
   next.textContent = reviewStep === 5 ? '完成复盘' : '下一步 →';
+
   renderReviewAction(data);
 }
 
 function renderReviewAction(data) {
   const area = document.getElementById('review-action-area');
   if (!area) return;
+
   if (reviewStep === 1) {
-    area.innerHTML = '<div class="review-question"><b>第一步：判断你的错误原因</b><p>你当时为什么会得到这个错误答案？</p></div><div class="review-options">' +
-      ['忘记代入','把y当b','不会'].map(x => '<button data-review-answer="' + x + '">' +
-      (x === '忘记代入' ? '我忘记把点代入函数' : x === '把y当b' ? '我把 y 的值直接当成了 b' : '我不知道点在图像上是什么意思') + '</button>').join('') + '</div>';
+    area.innerHTML =
+      '<div class="review-question"><b>先确认：这个诊断是否符合你的真实情况？</b><p>选择最接近你的原因，帮助 Agent 校正后续训练。</p></div>' +
+      '<div class="review-options">' +
+      ['我没理解概念','我没抓住题目条件','我知道条件但不会组织思路','计算或代入出错'].map(x =>
+        '<button type="button" data-review-answer="' + escapeHtml(x) + '">' + escapeHtml(x) + '</button>'
+      ).join('') +
+      '</div>';
   } else if (reviewStep === 2) {
-    area.innerHTML = '<div class="review-question"><b>第二步：定位知识点</b><p>系统判断这道错题最核心的知识点是：</p></div><div class="review-answer-card"><strong>' + data.knowledge + '</strong><small>后续训练会围绕这个知识点生成，而不是泛泛刷题。</small></div>';
+    area.innerHTML =
+      '<div class="review-question"><b>第二步：锁定知识点</b><p>后续题目会围绕这个知识点，而不是继续刷泛题。</p></div>' +
+      '<div class="review-answer-card"><strong>' + escapeHtml(data.knowledge || '等待 AI 定位') + '</strong><small>' +
+      escapeHtml(data.evidence || '等待更多证据') + '</small></div>';
   } else if (reviewStep === 3) {
-    area.innerHTML = '<div class="review-question"><b>第三步：错误类型</b><p>这次错误更接近哪一种？</p></div><div class="review-options"><button data-review-answer="概念理解">概念理解</button><button data-review-answer="条件提取">条件提取</button><button data-review-answer="思路组织">思路组织</button></div>';
+    area.innerHTML =
+      '<div class="review-question"><b>第三步：记录错误类型</b><p>错误类型会进入你的学习画像，用于调整下一次训练。</p></div>' +
+      '<div class="review-answer-card"><strong>' + escapeHtml(data.errorType || data.error || '待判断') + '</strong><small>' +
+      escapeHtml(data.reason || '等待 AI 给出错因') + '</small></div>';
   } else if (reviewStep === 4) {
-    area.innerHTML = '<div class="training-ladder"><div class="training-card"><span>① 基础同类题</span><b>' + data.basic + '</b></div><div class="training-card"><span>② 变式题</span><b>' + data.variant + '</b></div><div class="training-card"><span>③ 综合题</span><b>' + data.comprehensive + '</b></div></div>';
+    area.innerHTML =
+      '<div class="training-ladder">' +
+      '<div class="training-card"><span>① 基础同类题</span><b>' + escapeHtml(data.basic || 'AI 将生成') + '</b></div>' +
+      '<div class="training-card"><span>② 真变式</span><b>' + escapeHtml(data.variant || 'AI 将改变条件或解题入口') + '</b></div>' +
+      '<div class="training-card"><span>③ 综合题</span><b>' + escapeHtml(data.comprehensive || 'AI 将增加多条件整合') + '</b></div>' +
+      '</div>';
   } else {
-    area.innerHTML = '<div class="mastery-test"><span>掌握检验题</span><b>先独立完成 1 道同知识点的新题，再由 AI 判断是否需要继续补救。</b><div class="mastery-meter"><i style="width:72%"></i></div><small>当前预计掌握度 72% · 通过门槛 80%</small></div>';
+    area.innerHTML =
+      '<div class="mastery-test"><span>掌握检验</span><b>' +
+      escapeHtml(data.masteryCheck || '完成不同形式的新题后，再判断是否真正掌握。') +
+      '</b><div class="mastery-meter"><i style="width:72%"></i></div><small>通过一次不代表掌握，必须在不同题型上稳定表现。</small></div>';
   }
-  area.querySelectorAll('[data-review-answer]').forEach(btn => btn.addEventListener('click', () => {
-    selectedReviewAnswer = btn.dataset.reviewAnswer;
-    area.querySelectorAll('[data-review-answer]').forEach(x => x.classList.remove('selected'));
-    btn.classList.add('selected');
-    showToast('已记录：' + selectedReviewAnswer);
-  }));
+
+  area.querySelectorAll('[data-review-answer]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedReviewAnswer = btn.dataset.reviewAnswer;
+      area.querySelectorAll('[data-review-answer]').forEach(x => x.classList.remove('selected'));
+      btn.classList.add('selected');
+      showToast('已记录：' + selectedReviewAnswer);
+    });
+  });
 }
+
 
 document.querySelectorAll('.mistake-item').forEach(item => item.addEventListener('click', () => {
   currentMistake = item.dataset.mistake;
@@ -736,30 +770,49 @@ document.querySelectorAll('.mistake-item').forEach(item => item.addEventListener
 }));
 
 document.getElementById('review-next')?.addEventListener('click', async () => {
+  if (!currentMistake) {
+    showToast('先完成一道真实错题');
+    return;
+  }
+
+  const data = mistakeData[currentMistake];
+  if (!data) return;
+
   if (reviewStep === 5) {
     showToast('复盘完成，已进入再测队列');
     reviewStep = 1;
-  } else {
-    reviewStep += 1;
+    renderMistake();
+    return;
   }
+
+  reviewStep += 1;
   renderMistake();
 
-  const data = mistakeData[currentMistake];
   try {
-    const answer = await callAgent('mistake',
+    const raw = await callAgent('mistake',
       '错题标题：' + data.title + '\n' +
       '原错题：' + data.question + '\n' +
-      '错误原因线索：' + data.reason + '\n' +
-      '知识点：' + data.knowledge + '\n' +
-      '错误类型：' + data.error + '\n' +
-      '学生当前进入复盘第 ' + reviewStep + '/5 步。\n' +
-      '请只输出本阶段最重要的诊断/训练建议，帮助学生继续复盘。'
+      '学生选择：' + (data.chosen || '') + '\n' +
+      '错误原因线索：' + (data.reason || '') + '\n' +
+      '知识点：' + (data.knowledge || '') + '\n' +
+      '错误类型：' + (data.error || '') + '\n' +
+      '当前复盘阶段：第 ' + reviewStep + '/5。\n' +
+      '请返回完整 JSON，字段：reason,knowledge,errorType,evidence,basic,variant,comprehensive,masteryCheck。'
     );
-    document.getElementById('review-stage-text').textContent = answer;
+    const parsed = parseAgentJson(raw);
+    Object.assign(data, parsed);
+    data.error = parsed.errorType || data.error;
+    mistakeData[currentMistake] = data;
+    saveMistakes();
+    renderMistake();
   } catch (error) {
-    showToast('AI复盘暂时不可用，继续使用本地复盘流程');
+    const stageText = document.getElementById('review-stage-text');
+    if (stageText) {
+      stageText.innerHTML = '<b>本阶段先使用已有诊断</b><br>' + escapeHtml(error.message);
+    }
   }
 });
+
 
 renderMistake();
 
@@ -1005,28 +1058,37 @@ async function callAgent(agent, context) {
 const aiReviewStart = document.getElementById('ai-review-start');
 aiReviewStart?.addEventListener('click', async () => {
   const data = mistakeData[currentMistake];
+  if (!data) {
+    showToast('先选择一道错题');
+    return;
+  }
+
   aiReviewStart.disabled = true;
   aiReviewStart.textContent = 'AI分析中…';
+
   try {
-    const answer = await callAgent('mistake',
+    const raw = await callAgent('mistake',
       '错题标题：' + data.title + '\n' +
       '原错题：' + data.question + '\n' +
-      '原始错误原因线索：' + data.reason + '\n' +
-      '知识点：' + data.knowledge + '\n' +
-      '错误类型：' + data.error + '\n' +
-      '当前复盘阶段：第 ' + reviewStep + '/5。\n' +
-      '请给出本阶段最应该关注的内容和下一步训练建议。'
+      '学生选择：' + (data.chosen || '') + '\n' +
+      '请返回结构化 JSON，字段：reason,knowledge,errorType,evidence,basic,variant,comprehensive,masteryCheck。'
     );
-    document.getElementById('review-stage-text').textContent = answer;
-    showToast('错题复盘 Agent 已完成真实分析');
+    const parsed = parseAgentJson(raw);
+    Object.assign(data, parsed);
+    data.error = parsed.errorType || data.error;
+    mistakeData[currentMistake] = data;
+    saveMistakes();
+    renderMistake();
+    showToast('错题分析完成');
   } catch (error) {
-    document.getElementById('review-stage-text').textContent = error.message;
-    showToast('错题分析失败');
+    const stageText = document.getElementById('review-stage-text');
+    if (stageText) stageText.innerHTML = '<b>分析失败</b><br>' + escapeHtml(error.message);
   } finally {
     aiReviewStart.disabled = false;
     aiReviewStart.textContent = 'AI分析这道错题';
   }
 });
+
 
 function parseSkillQuestion(raw) {
   let parsed = null;

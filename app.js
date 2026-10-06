@@ -765,211 +765,191 @@ renderMistake();
 
 
 const skillQuestions = [
-  {
-    level:'基础题', label:'基础训练', question:'已知一次函数 y = 2x + 3，当 x = 1 时，y = ?', options:{A:'3',B:'5',C:'6',D:'8'}, answer:'B'
-  },
-  {
-    level:'中等题', label:'中等应用', question:'一次函数 y = 2x + b 经过点（1，4），则 b = ?', options:{A:'1',B:'2',C:'3',D:'4'}, answer:'B'
-  },
-  {
-    level:'综合题', label:'综合应用', question:'一次函数 y = kx + b 的图象经过 A(1,3) 和 B(3,7)，则该函数的解析式是？', options:{A:'y = x + 2',B:'y = 2x + 1',C:'y = 3x',D:'y = 2x - 1'}, answer:'B'
-  },
-  {
-    level:'变式题', label:'迁移变式', question:'直线 y = 2x + 1 向上平移 3 个单位后经过点 P。若 P 的横坐标为 2，则 P 的纵坐标为？', options:{A:'5',B:'6',C:'8',D:'9'}, answer:'C'
-  }
+  {level:'基础题',label:'基础训练',question:'已知一次函数 y = 2x + 3，当 x = 1 时，y = ?',options:{A:'3',B:'5',C:'6',D:'8'},answer:'B',explanation:'把 x = 1 代入解析式。'},
+  {level:'中等题',label:'中等应用',question:'一次函数 y = 2x + b 经过点（1，4），求 b。',options:{A:'1',B:'2',C:'3',D:'4'},answer:'B',explanation:'把已知点代入解析式。'},
+  {level:'综合题',label:'综合应用',question:'一次函数 y = kx + b 经过 A(1,3)、B(3,7)，求其 x 轴截距。',options:{A:'1',B:'-1/2',C:'2',D:'3'},answer:'B',explanation:'先由两点求 k、b，再令 y=0。'},
+  {level:'变式题',label:'迁移变式',question:'某一次函数经过点 A(2,0)，且图象与两坐标轴围成的三角形面积为4。若 x 轴截距固定为2，求所有可能的 y 轴截距，并说明为什么可能有两个解。',options:{A:'1',B:'2',C:'±2',D:'4'},answer:'C',explanation:'从直接求参数变为由几何面积反推参数并处理多解。'}
 ];
-let skillLevelIndex = 2;
-let skillQuestionNo = 1;
+let skillLevelIndex = 0;
+let skillQuestionNo = 0;
 let skillStreak = 0;
-let skillMastery = 0;
+let skillMastery = Number(profile?.skillMastery || 0);
 let selectedSkillOption = '';
 let dynamicSkillQuestion = null;
+let skillAnswered = false;
+let skillAnswerCorrect = null;
+let skillHistory = JSON.parse(localStorage.getItem('yincaiSkillHistory') || '[]');
 
-function renderSkillQuestion() {
-  const levelTitle = document.getElementById('skill-level-title');
-  const levelPill = document.getElementById('skill-level-pill');
-  const question = document.getElementById('skill-question-text');
-  const no = document.getElementById('skill-question-no');
-  const options = document.getElementById('skill-options');
-  const current = document.getElementById('skill-current-level');
-  const next = document.getElementById('skill-next-level');
-  const mastery = document.getElementById('skill-mastery');
-  const decisionPill = document.getElementById('skill-decision-pill');
-  const decisionText = document.getElementById('skill-decision-text');
-  const submit = document.getElementById('skill-submit');
-  const skip = document.getElementById('skill-skip');
-  if (!levelTitle || !options) return;
+function normalizeQuestionKey(question) {
+  return String(question || '').replace(/\s+/g,'').replace(/[，。！？；：、（）()]/g,'').toLowerCase();
+}
+function saveSkillHistory() {
+  localStorage.setItem('yincaiSkillHistory', JSON.stringify(skillHistory.slice(-12)));
+}
+function isDuplicateQuestion(question) {
+  const key = normalizeQuestionKey(question);
+  return !!key && skillHistory.some(item => normalizeQuestionKey(item.question) === key);
+}
 
-  const q = dynamicSkillQuestion || (profile ? skillQuestions[skillLevelIndex] : null);
-  if (!profile || !q) {
-    levelTitle.textContent = '等待生成';
-    levelPill.textContent = '未开始';
-    question.textContent = '完成首次学情设置和 AI 诊断后，系统会根据你的真实情况生成第一道训练题。';
-    no.textContent = '0';
-    if (current) current.textContent = '未开始';
-    if (next) next.textContent = '等待诊断';
-    if (mastery) mastery.textContent = '--';
-    if (decisionPill) decisionPill.textContent = '等待学情';
-    if (decisionText) decisionText.textContent = '先完成学情设置，Agent 才会决定训练技能和难度。';
-    options.innerHTML = '<div class="empty-state"><b>等待 AI 出题</b><p>完成首次学情设置后开始训练。</p></div>';
-    if (submit) submit.disabled = true;
-    if (skip) skip.disabled = true;
+function renderSkillHistory() {
+  const list = document.getElementById('skill-history-list');
+  if (!list) return;
+  if (!skillHistory.length) {
+    list.innerHTML='<div class="empty-state"><b>还没有完成的题目</b><p>提交题目后会保留在这里，可随时回看。</p></div>';
     return;
   }
-
-  levelTitle.textContent = q.level;
-  levelPill.textContent = q.label;
-  question.textContent = q.question;
-  no.textContent = skillQuestionNo;
-  if (current) current.textContent = q.level;
-  if (mastery) mastery.textContent = skillMastery ? skillMastery + '%' : '--';
-  if (decisionPill) decisionPill.textContent = '正在训练 · ' + q.level;
-  if (decisionText) decisionText.textContent = skillStreak >= 2
-    ? '连续答对后，Agent 正在尝试更高难度。'
-    : 'Agent 会根据你的最近表现动态决定下一题。';
-  const nextLabel = skillLevelIndex < 3 ? skillQuestions[skillLevelIndex + 1].level : '维持变式';
-  if (next) next.textContent = nextLabel;
-  options.innerHTML = Object.entries(q.options || {})
-    .map(([key,value]) => '<button data-skill-option="' + key + '">' + key + '. ' + escapeHtml(String(value).replace(/^\w\.\s*/, '')) + '</button>')
-    .join('');
-  options.querySelectorAll('[data-skill-option]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      selectedSkillOption = btn.dataset.skillOption;
-      options.querySelectorAll('button').forEach(x => x.classList.remove('selected'));
-      btn.classList.add('selected');
-    });
-  });
-  if (submit) submit.disabled = false;
-  if (skip) skip.disabled = false;
-
-  const feedback=document.getElementById('skill-feedback');
-  if(feedback){
-    feedback.className='skill-feedback';
-    feedback.innerHTML='<span>AI 评估规则</span><p>连续答对会提高难度；出现错误会先回到更适合当前状态的题型。</p>';
-  }
+  list.innerHTML=skillHistory.slice().reverse().map((item,reverseIndex)=>{
+    const idx=skillHistory.length-1-reverseIndex;
+    return '<button type="button" class="skill-history-item" data-skill-history-index="'+idx+'"><div><span class="pill">'+escapeHtml(item.level||'训练题')+'</span><small>第 '+(idx+1)+' 题</small></div><b>'+escapeHtml(item.question)+'</b><span class="'+(item.correct?'history-correct':'history-wrong')+'">'+(item.skipped?'已标记不会':item.correct?'答对':'答错')+'</span></button>';
+  }).join('');
+  list.querySelectorAll('[data-skill-history-index]').forEach(btn=>btn.addEventListener('click',()=>{
+    const item=skillHistory[Number(btn.dataset.skillHistoryIndex)];
+    if(!item) return;
+    dynamicSkillQuestion=item;
+    skillAnswered=true;
+    selectedSkillOption=item.chosen||'';
+    renderSkillQuestion();
+    const feedback=document.getElementById('skill-feedback');
+    if(feedback){feedback.className=item.correct?'skill-feedback correct':'skill-feedback wrong';feedback.innerHTML='<span>第 '+(Number(btn.dataset.skillHistoryIndex)+1)+' 题回看</span><p>你的选择：'+escapeHtml(item.chosen||'未作答')+' · 正确答案：'+escapeHtml(item.answer||'')+'<br>'+escapeHtml(item.explanation||'')+'</p>';}
+  }));
 }
 
-function evaluateSkillAnswer(correct) {
-  const resultTitle=document.getElementById('skill-result-title');
-  const nextLevel=skillLevelIndex;
-  let feedbackTitle='';
-  let feedbackText='';
-  if(correct){
-    skillStreak += 1;
-    skillMastery = Math.min(100, skillMastery + 8);
-    if(skillStreak >= 2 && skillLevelIndex < 3) skillLevelIndex += 1;
-    feedbackTitle='答对了 · Agent 已更新学情';
-    feedbackText='这次表现支持你进入更高难度。当前掌握度提升到 ' + skillMastery + '%。';
-    if(resultTitle) resultTitle.textContent='表现稳定，难度已上调';
-  }else{
-    skillStreak = 0;
-    skillMastery = Math.max(0, skillMastery - 5);
-    if(skillLevelIndex > 0) skillLevelIndex -= 1;
-    feedbackTitle='这次先降一个难度';
-    feedbackText='不要继续堆更难的题。Agent 判断你需要先补强当前能力，再重新尝试。';
-    if(resultTitle) resultTitle.textContent='出现卡点，Agent 已降低难度';
+function parseSkillQuestion(raw) {
+  let parsed=null;
+  try {
+    const start=raw.indexOf('{'), end=raw.lastIndexOf('}');
+    if(start>=0&&end>start) parsed=JSON.parse(raw.slice(start,end+1));
+  } catch(_) {}
+  if(!parsed||!parsed.question||!parsed.options||!parsed.answer) return null;
+  if(!['A','B','C','D'].every(k=>parsed.options[k])) return null;
+  if(!['A','B','C','D'].includes(parsed.answer)) return null;
+  const text=(parsed.question+' '+(parsed.explanation||'')).toLowerCase();
+  if(parsed.level==='变式题' && !/(变式|迁移|反推|改变|不同|多解|情境|综合|证明)/.test(text)) return null;
+  return {level:parsed.level||'综合题',label:parsed.label||'综合应用',question:parsed.question,options:parsed.options,answer:parsed.answer,explanation:parsed.explanation||''};
+}
+
+function renderSkillQuestion() {
+  const q=dynamicSkillQuestion;
+  const submit=document.getElementById('skill-submit');
+  const skip=document.getElementById('skill-skip');
+  const nextButton=document.getElementById('skill-next');
+  const options=document.getElementById('skill-options');
+  if(!options) return;
+  if(!q){
+    document.getElementById('skill-level-title').textContent='等待生成';
+    document.getElementById('skill-level-pill').textContent='未开始';
+    document.getElementById('skill-question-text').textContent=profile?'点击“开始训练”生成第一道题。':'先完成学情设置和 AI 诊断。';
+    document.getElementById('skill-question-no').textContent=String(skillQuestionNo);
+    document.getElementById('skill-current-level').textContent='未开始';
+    document.getElementById('skill-next-level').textContent='等待表现';
+    document.getElementById('skill-mastery').textContent=skillMastery+'%';
+    options.innerHTML='<div class="empty-state"><b>等待 AI 出题</b><p>不会自动跳题，点击“开始训练”或“下一题”后才生成。</p></div>';
+    if(submit) submit.disabled=true;
+    if(skip) skip.disabled=true;
+    if(nextButton){nextButton.hidden=!profile;nextButton.disabled=false;nextButton.textContent=skillQuestionNo?'下一题':'开始训练';}
+    return;
   }
-  document.getElementById('skill-streak').textContent=skillStreak;
-  if (profile) {
-    profile.skillMastery = skillMastery;
-    saveProfile(profile);
-  }
-  skillQuestionNo += 1;
+  document.getElementById('skill-level-title').textContent=q.level||'训练题';
+  document.getElementById('skill-level-pill').textContent=q.label||'AI训练';
+  document.getElementById('skill-question-text').textContent=q.question||'';
+  document.getElementById('skill-question-no').textContent=String(skillQuestionNo);
+  document.getElementById('skill-current-level').textContent=q.level||'训练题';
+  document.getElementById('skill-mastery').textContent=skillMastery+'%';
+  document.getElementById('skill-decision-pill').textContent=skillAnswered?'本题已完成':'正在训练 · '+(q.level||'训练题');
+  document.getElementById('skill-decision-text').textContent=skillAnswered?'当前题目已保留。你可以回看后再进入下一题。':'Agent 会根据最近表现决定下一题难度，不会自动跳走。';
+  document.getElementById('skill-next-level').textContent=skillAnswered?'下一题将综合最新表现':['基础题','中等题','综合题','变式题'][Math.min(3,skillLevelIndex+1)];
+  options.innerHTML=Object.entries(q.options||{}).map(([k,v])=>'<button type="button" data-skill-option="'+escapeHtml(k)+'"'+(skillAnswered?' disabled':'')+'>'+escapeHtml(k+'. '+v)+'</button>').join('');
+  if(!skillAnswered){options.querySelectorAll('[data-skill-option]').forEach(btn=>btn.addEventListener('click',()=>{selectedSkillOption=btn.dataset.skillOption;options.querySelectorAll('button').forEach(x=>x.classList.remove('selected'));btn.classList.add('selected');}));}
+  if(submit) submit.disabled=skillAnswered;
+  if(skip) skip.disabled=skillAnswered;
+  if(nextButton){nextButton.hidden=!skillAnswered;nextButton.disabled=false;nextButton.textContent='下一题';}
+}
+
+async function requestDynamicSkillQuestion(lastCorrect) {
+  if(!profile?.diagnosis){renderSkillQuestion();return;}
+  const seen=skillHistory.slice(-10).map(x=>x.question).filter(Boolean);
+  const target=['基础题','中等题','综合题','变式题'][skillLevelIndex]||'综合题';
+  const prompt=profileContext()+'\\n当前重点知识点：'+(profile.primaryTopic||profile.subject)+'。\\n目标难度：'+target+'。\\n连续答对：'+skillStreak+'。\\n上一题是否答对：'+(lastCorrect==null?'暂无':lastCorrect?'是':'否')+'。\\n已做题目（严禁重复）：\\n- '+(seen.join('\\n- ')||'无')+'\\n硬性要求：新题与任何已做题的题干、数值结构和解法入口都不得重复；变式题必须真正改变条件或解题入口。';
+  const raw=await callAgent('skill',prompt);
+  const parsed=parseSkillQuestion(raw);
+  if(!parsed) throw new Error('Agent 没有返回符合规则的新题。');
+  if(isDuplicateQuestion(parsed.question)) throw new Error('Agent 生成了重复题目，已拦截，没有覆盖上一题。');
+  dynamicSkillQuestion=parsed;
+  skillQuestionNo+=1;
+  const levels={'基础题':0,'中等题':1,'综合题':2,'变式题':3};
+  if(levels[parsed.level]!==undefined) skillLevelIndex=levels[parsed.level];
+  skillAnswered=false;skillAnswerCorrect=null;selectedSkillOption='';
   renderSkillQuestion();
   const feedback=document.getElementById('skill-feedback');
-  if(feedback){
-    feedback.className=correct ? 'skill-feedback correct' : 'skill-feedback wrong';
-    feedback.innerHTML='<span>' + feedbackTitle + '</span><p>' + feedbackText + '</p>';
-  }
+  if(feedback){feedback.className='skill-feedback';feedback.innerHTML='<span>AI 已生成下一题</span><p>'+escapeHtml(parsed.explanation||'难度已根据你的表现调整。')+'</p>';}
 }
 
-async function analyzeSkillMistake(q, chosen, mistakeId) {
-  const answer = await callAgent('mistake',
-    profileContext() + '\\n' +
-    '刚刚技能训练题：' + q.question + '\\n' +
-    '正确答案：' + q.answer + '\\n' +
-    '学生选择：' + chosen + '\\n' +
-    '请明确告诉学生：这道题暴露出的知识点是什么、错因是什么、下一步应该补什么。请简洁回答。'
-  );
-
-  if (mistakeData[mistakeId]) {
-    mistakeData[mistakeId].knowledge = answer;
-    mistakeData[mistakeId].reason = answer;
-    saveMistakes();
-    renderMistakeListFromStore();
-  }
-
-  const feedback = document.getElementById('skill-feedback');
-  if (feedback) {
-    feedback.className = 'skill-feedback wrong';
-    feedback.innerHTML = '<span>AI 找到这次卡点</span><p>' + escapeHtml(answer) + '</p>';
-  }
-
-  profile.latestSkillDiagnosis = answer;
-  saveProfile(profile);
-  return answer;
+function saveSkillAttempt(q,chosen,correct,skipped){
+  skillHistory.push({level:q.level,question:q.question,options:q.options,answer:q.answer,chosen:chosen||'',correct:!!correct,skipped:!!skipped,explanation:q.explanation||'',createdAt:new Date().toISOString()});
+  saveSkillHistory();
+  renderSkillHistory();
 }
 
-document.getElementById('skill-submit')?.addEventListener('click', async () => {
-  const q = dynamicSkillQuestion || skillQuestions[skillLevelIndex];
-  if(!selectedSkillOption){ showToast('先选择一个答案'); return; }
+function evaluateSkillAnswer(correct){
+  const q=dynamicSkillQuestion;if(!q)return;
+  const chosen=selectedSkillOption;
+  if(correct){skillStreak+=1;skillMastery=Math.min(100,skillMastery+8);if(skillStreak>=2&&skillLevelIndex<3)skillLevelIndex+=1;}
+  else{skillStreak=0;skillMastery=Math.max(0,skillMastery-5);if(skillLevelIndex>0)skillLevelIndex-=1;}
+  if(profile){profile.skillMastery=skillMastery;saveProfile(profile);}
+  saveSkillAttempt(q,chosen,correct,false);
+  skillAnswered=true;skillAnswerCorrect=correct;
+  document.getElementById('skill-result-title').textContent=correct?'本题答对 · 回看后再进入下一题':'本题答错 · 当前题目已保留';
+  const feedback=document.getElementById('skill-feedback');
+  if(feedback){feedback.className=correct?'skill-feedback correct':'skill-feedback wrong';feedback.innerHTML='<span>'+(correct?'回答正确':'出现卡点')+'</span><p>'+escapeHtml(correct?(q.explanation||'下一题会根据你的表现调整。'):('正确答案是 '+q.answer+'。建议先回看这道题，再决定是否进入下一题。'))+'</p>';}
+  renderSkillQuestion();renderSkillHistory();
+}
 
-  const chosen = selectedSkillOption;
-  const correct = chosen === q.answer;
-  let mistakeId = null;
+async function analyzeSkillMistake(q,chosen,mistakeId){
+  const raw=await callAgent('mistake',profileContext()+'\\n刚刚技能训练题：'+q.question+'\\n正确答案：'+q.answer+'\\n学生选择：'+chosen+'\\n请返回结构化 JSON，字段：reason,knowledge,errorType,evidence,basic,variant,comprehensive,masteryCheck。');
+  const data=parseAgentJson(raw);
+  if(mistakeData[mistakeId]){Object.assign(mistakeData[mistakeId],data);mistakeData[mistakeId].error=data.errorType||'答题错误';saveMistakes();renderMistakeListFromStore();renderMistake();}
+  const feedback=document.getElementById('skill-feedback');
+  if(feedback){feedback.innerHTML='<span>AI 已定位这次错误</span><p><b>'+escapeHtml(data.knowledge||'知识点待诊断')+'</b><br>'+escapeHtml(data.reason||'错因待诊断')+'</p>';}
+}
 
-  if (!correct) {
-    mistakeId = 'mistake-' + Date.now();
-    mistakeData[mistakeId] = {
-      id: mistakeId,
-      title: q.level + ' · ' + (profile?.primaryTopic || profile?.subject || '技能训练'),
-      type: '技能训练错误',
-      question: q.question,
-      reason: '正在由 AI 分析',
-      knowledge: '正在由 AI 定位',
-      error: '答题错误',
-      basic: '围绕该知识点做一道基础同类题。',
-      variant: '改变条件后做一道变式题。',
-      comprehensive: '完成一道综合应用题并解释思路。',
-      createdAt: new Date().toLocaleString()
-    };
-    saveMistakes();
-    currentMistake = mistakeId;
-    renderMistakeListFromStore();
+document.getElementById('skill-submit')?.addEventListener('click',async()=>{
+  const q=dynamicSkillQuestion;if(!q||skillAnswered)return;
+  if(!selectedSkillOption){showToast('先选择一个答案');return;}
+  const chosen=selectedSkillOption,correct=chosen===q.answer;
+  let mistakeId=null;
+  if(!correct){
+    mistakeId='mistake-'+Date.now();
+    mistakeData[mistakeId]={id:mistakeId,title:q.level+' · '+(profile?.primaryTopic||profile?.subject||'技能训练'),type:'技能训练错误',question:q.question,reason:'AI 正在分析',knowledge:'AI 正在定位',error:'答题错误',basic:'等待 AI 生成',variant:'等待 AI 生成',comprehensive:'等待 AI 生成',masteryCheck:'等待 AI 生成',createdAt:new Date().toLocaleString()};
+    saveMistakes();currentMistake=mistakeId;renderMistakeListFromStore();
   }
-
-  dynamicSkillQuestion = null;
-  selectedSkillOption = '';
   evaluateSkillAnswer(correct);
-
-  try {
-    if (!correct && mistakeId) {
-      await analyzeSkillMistake(q, chosen, mistakeId);
-    }
-    await requestDynamicSkillQuestion(correct);
-  } catch (error) {
-    const feedback = document.getElementById('skill-feedback');
-    if (feedback) feedback.innerHTML = '<span>AI 暂时无法继续</span><p>' + escapeHtml(error.message) + '</p>';
-  }
+  if(!correct&&mistakeId){try{await analyzeSkillMistake(q,chosen,mistakeId);}catch(error){showToast('错题已保存，AI 错因分析稍后可重试');}}
 });
 
-document.getElementById('skill-skip')?.addEventListener('click', async () => {
-  skillStreak=0;
-  skillMastery=Math.max(0, skillMastery-3);
-  if(skillLevelIndex>0) skillLevelIndex -= 1;
-  skillQuestionNo += 1;
-  selectedSkillOption='';
-  dynamicSkillQuestion = null;
-  showToast('已记录“不会”，下一题会降低难度');
+document.getElementById('skill-next')?.addEventListener('click',async()=>{
+  if(!skillAnswered)return;
+  const last=skillAnswerCorrect;
+  dynamicSkillQuestion=null;skillAnswered=false;selectedSkillOption='';
+  const nextButton=document.getElementById('skill-next');if(nextButton)nextButton.disabled=true;
+  try{await requestDynamicSkillQuestion(last);}catch(error){
+    dynamicSkillQuestion=null;skillAnswered=false;
+    const feedback=document.getElementById('skill-feedback');
+    if(feedback){feedback.className='skill-feedback wrong';feedback.innerHTML='<span>下一题暂时无法生成</span><p>'+escapeHtml(error.message)+'。当前题目和历史记录都已保留，你可以稍后重试。</p>';}
+    renderSkillQuestion();
+  }finally{if(nextButton)nextButton.disabled=false;}
+});
+
+document.getElementById('skill-skip')?.addEventListener('click',()=>{
+  const q=dynamicSkillQuestion;if(!q||skillAnswered)return;
+  skillStreak=0;skillMastery=Math.max(0,skillMastery-3);if(skillLevelIndex>0)skillLevelIndex-=1;
+  saveSkillAttempt(q,'',false,true);skillAnswered=true;skillAnswerCorrect=false;
+  if(profile){profile.skillMastery=skillMastery;saveProfile(profile);}
+  const feedback=document.getElementById('skill-feedback');
+  if(feedback){feedback.className='skill-feedback wrong';feedback.innerHTML='<span>已记录“这题我不会”</span><p>题目不会消失，可以回看后再点击“下一题”。</p>';}
   renderSkillQuestion();
-  try {
-    await requestDynamicSkillQuestion(false);
-  } catch (error) {
-    showToast('AI 出题失败，保留本地题库');
-  }
 });
 
-renderSkillQuestion();
+renderSkillHistory();renderSkillQuestion();
 
 const motivationComplete=document.getElementById('motivation-complete');
 const motivationBar=document.getElementById('motivation-complete-bar');

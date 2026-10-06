@@ -549,9 +549,21 @@ function finishPlanProgress(success, message) {
 }
 
 function buildLocalPlan(days, minutes, goal) {
-  const priorities = Array.isArray(profile?.diagnosis?.priorities)
+  let priorities = Array.isArray(profile?.diagnosis?.priorities)
     ? profile.diagnosis.priorities
     : [];
+
+  if (!priorities.length) {
+    const stateText = String(profile?.state || '');
+    priorities = [];
+    if (/函数|一次函数|函数综合/.test(stateText)) {
+      priorities.push({ name: '函数综合应用', priority: '高', evidence: '来自学生自述的函数综合题困难。' });
+    }
+    if (/几何|证明|三角形|辅助线/.test(stateText)) {
+      priorities.push({ name: '几何证明', priority: '高', evidence: '来自学生自述的几何证明困难。' });
+    }
+  }
+
   const first = priorities[0]?.name || profile?.primaryTopic || profile?.subject || '当前薄弱知识点';
   const second = priorities[1]?.name || '综合应用';
   const stable = priorities[2]?.name || '待诊断';

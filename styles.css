@@ -478,3 +478,12 @@ button { cursor: pointer; }
   border-radius:10px;
 }
 .mistake-stats .panel b { font-size:24px; }
+
+.plan-progress{margin:12px 0 0;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:#fafbff}
+.plan-progress-head{display:flex;justify-content:space-between;gap:10px;align-items:center;margin-bottom:8px;font-size:11px;color:var(--muted)}
+.plan-progress-head b{font-size:11px;color:var(--text);font-weight:700}
+.plan-progress-track{height:7px;border-radius:999px;background:#eceff7;overflow:hidden}
+.plan-progress-track i{display:block;height:100%;width:0;border-radius:999px;background:linear-gradient(90deg,#5d67f3,#7e8cff);transition:width .45s ease}
+.plan-progress-track i.running{animation:planPulse 1.35s ease-in-out infinite}
+.plan-progress-track i.failed{background:#d96a6a}
+@keyframes planPulse{0%,100%{opacity:.72}50%{opacity:1}}

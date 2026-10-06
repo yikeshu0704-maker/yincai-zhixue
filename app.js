@@ -1283,8 +1283,8 @@ function normalizeSkillAnswer(value){
   return String(value||'')
     .trim()
     .toLowerCase()
-    .replace(/\\s+/g,'')
-    .replace(/[\\$\\{\\}\\[\\]（）()，,。；;：:]/g,'');
+    .replace(/\s+/g,'')
+    .replace(/[$\\{}\[\]（）()，,。；;：:]/g,'');
 }
 
 function skillAnswersEquivalent(chosen, answer){

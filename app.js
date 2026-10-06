@@ -6,6 +6,13 @@ const HEALTH_API_URL = API_ORIGIN + '/api/health';
 const PROFILE_KEY = 'yincaiProfile';
 const TASK_KEY = 'yincaiTasks';
 const STREAK_KEY = 'yincaiStreak';
+const DATA_VERSION = '2026-10-07-first-user-flow-v2';
+
+if (localStorage.getItem('yincaiDataVersion') !== DATA_VERSION) {
+  ['yincaiProfile', 'yincaiTasks', 'yincaiStreak', 'yincaiMistakes'].forEach((key) => localStorage.removeItem(key));
+  localStorage.setItem('yincaiDataVersion', DATA_VERSION);
+}
+
 let profile = null;
 
 function loadProfile() {
@@ -33,7 +40,9 @@ function profileContext() {
     '距离考试：' + (profile.days || '未填写') + ' 天',
     '每天可学习：' + (profile.hours || '未填写') + ' 小时',
     '学生自述当前情况：' + (profile.state || '未填写'),
-    '历史错题数量：' + Object.keys(mistakeData).length
+    '历史错题数量：' + Object.keys(mistakeData).length,
+    '最近一次 AI 学情诊断：' + (profile.diagnosis ? JSON.stringify(profile.diagnosis) : '尚未诊断'),
+    '当前重点训练：' + (profile.primaryTopic || '尚未确定')
   ].join('\\n');
 }
 
@@ -120,30 +129,79 @@ function appendAssistantBubble(answerText, noteText) {
   return assistant;
 }
 
+const chatImageInput = document.getElementById('chat-image');
+const chatImageName = document.getElementById('chat-image-name');
+const clearChatImageButton = document.getElementById('clear-chat-image');
+let selectedChatImage = null;
+
+function resetChatImage() {
+  selectedChatImage = null;
+  if (chatImageInput) chatImageInput.value = '';
+  if (chatImageName) chatImageName.textContent = '支持 JPG / PNG / GIF / WebP，建议 8MB 以内';
+  if (clearChatImageButton) clearChatImageButton.hidden = true;
+}
+
+chatImageInput?.addEventListener('change', () => {
+  const file = chatImageInput.files?.[0];
+  if (!file) return;
+  const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!allowed.includes(file.type)) {
+    showToast('暂时只支持 JPG、PNG、GIF、WebP');
+    resetChatImage();
+    return;
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    showToast('图片建议控制在 8MB 以内');
+    resetChatImage();
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    selectedChatImage = { data: reader.result, mimeType: file.type, name: file.name };
+    if (chatImageName) chatImageName.textContent = file.name;
+    if (clearChatImageButton) clearChatImageButton.hidden = false;
+  };
+  reader.readAsDataURL(file);
+});
+clearChatImageButton?.addEventListener('click', resetChatImage);
+
 chatForm.addEventListener('submit', async (event) => {
   event.preventDefault();
   const text = chatInput.value.trim();
-  if (!text || chatPending) return;
+  if ((!text && !selectedChatImage) || chatPending) return;
+
+  const sentImage = selectedChatImage;
   const user = document.createElement('div');
   user.className = 'chat';
-  user.innerHTML = `<div class="chat-avatar">我</div><div><p>${escapeHtml(text)}</p></div>`;
+  const imagePreview = sentImage
+    ? '<img class="chat-user-image" src="' + sentImage.data + '" alt="用户上传的题目图片" />'
+    : '';
+  user.innerHTML = '<div class="chat-avatar">我</div><div>' +
+    imagePreview + '<p>' + escapeHtml(text || '请帮我看这张题目图片。') + '</p></div>';
   chatLog.appendChild(user);
+
   chatInput.value = '';
+  resetChatImage();
   chatPending = true;
-  const pending = appendAssistantBubble('正在思考…', '正在连接后端服务…');
+
+  const pending = appendAssistantBubble('正在分析你的题目…', sentImage ? '正在读取图片并连接后端服务…' : '正在连接后端服务…');
   try {
     const response = await fetch(CHAT_API_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question: text })
+      body: JSON.stringify({
+        question: profile ? (profileContext() + '\\n学生当前问题：' + text) : text,
+        imageData: sentImage?.data || null,
+        imageMimeType: sentImage?.mimeType || null
+      })
     });
     if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
     pending.querySelector('p').textContent = data.answer || '（后端返回内容为空，请稍后再试）';
-    pending.querySelector('small').textContent = '来自因材智学后端服务';
+    pending.querySelector('small').textContent = sentImage ? '来自 DeepSeek 多模态答疑' : '来自因材智学后端服务';
   } catch (error) {
-    pending.querySelector('p').textContent = '暂时无法连接后端服务（localhost:8080）。请先启动 Spring Boot 后端（在 backend 目录运行 mvn spring-boot:run），启动成功后再重新发送你的问题。';
-    pending.querySelector('small').textContent = '连接失败 · 后端未启动或网络异常';
+    pending.querySelector('p').textContent = '暂时无法完成答疑。请确认 Spring Boot 后端运行在 localhost:8080，且 DeepSeek API 可用。';
+    pending.querySelector('small').textContent = '连接失败 · ' + error.message;
   }
   chatPending = false;
   chatLog.scrollTop = chatLog.scrollHeight;
@@ -189,29 +247,75 @@ document.getElementById('tutor-next')?.addEventListener('click', () => {
 });
 
 const analysisAgentButton = document.getElementById('run-analysis-agent');
-analysisAgentButton?.addEventListener('click', async () => {
-  if (!profile) {
-    openOnboarding();
-    showToast('先完成首次学情设置');
-    return;
+
+function parseAgentJson(raw) {
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start < 0 || end <= start) throw new Error('Agent 返回的结构化结果无法解析，请重试。');
+  try { return JSON.parse(raw.slice(start, end + 1)); }
+  catch (error) { throw new Error('Agent 返回的结构化结果无法解析，请重试。'); }
+}
+
+function renderDiagnosisResult(data) {
+  profile.diagnosis = data;
+  profile.primaryTopic = data.priorities?.[0]?.name || '';
+  saveProfile(profile);
+
+  const main = document.getElementById('analysis-main');
+  const summary = document.getElementById('analysis-agent-result');
+  if (main) main.textContent = (data.priorities || []).slice(0, 2).map(item => item.name).filter(Boolean).join(' + ') || '待诊断';
+  if (summary) summary.innerHTML = '<b>总体判断：</b> ' + escapeHtml(data.summary || '暂无') + '<br><b>下一步：</b> ' + escapeHtml(data.recommendedAction || '暂无');
+
+  const reasons = [
+    document.getElementById('analysis-reason-1'),
+    document.getElementById('analysis-reason-2'),
+    document.getElementById('analysis-reason-3')
+  ];
+  (data.priorities || []).slice(0, 3).forEach((item, index) => {
+    if (!reasons[index]) return;
+    const mastery = typeof item.mastery === 'number' ? '掌握度 ' + item.mastery + '%' : '掌握度待诊断';
+    reasons[index].innerHTML = '<b>' + escapeHtml(item.name || '未命名知识点') + '</b> · ' +
+      escapeHtml(item.priority || '待诊断') + ' · ' + mastery + '<br>' + escapeHtml(item.evidence || '暂无依据');
+  });
+
+  const map = document.getElementById('mastery-list');
+  if (map) {
+    const list = data.priorities || [];
+    map.innerHTML = list.length ? list.map(item => {
+      const mastery = typeof item.mastery === 'number' ? item.mastery : null;
+      const priorityClass = item.priority === '高' ? 'priority-high' : item.priority === '中' ? 'priority-mid' : '';
+      return '<div class="mastery-row ' + priorityClass + '">' +
+        '<div class="mastery-name"><b>' + escapeHtml(item.name || '知识点') + '</b><span>' + escapeHtml(item.priority || '待诊断') + '</span></div>' +
+        '<div class="mastery-bar"><i style="width:' + (mastery === null ? 10 : mastery) + '%"></i></div>' +
+        '<strong>' + (mastery === null ? '待诊断' : mastery + '%') + '</strong>' +
+      '</div>';
+    }).join('') : '<div class="empty-state"><b>AI 暂时无法形成知识点地图</b><p>请先补充更多测试结果或答题记录。</p></div>';
   }
-  const resultNode = document.getElementById('analysis-agent-result');
-  analysisAgentButton.disabled = true;
-  analysisAgentButton.textContent = 'AI分析中…';
+
+  const skillTitle = document.getElementById('skill-topic-title');
+  if (skillTitle && data.priorities?.[0]?.name) skillTitle.textContent = data.priorities[0].name + ' · AI训练';
+  showToast('学情诊断已更新');
+  requestDynamicSkillQuestion(false).catch(() => {});
+}
+
+async function runAnalysisAgent() {
+  if (!profile) { openOnboarding(); showToast('先完成首次学情设置'); return; }
+  if (analysisAgentButton) { analysisAgentButton.disabled = true; analysisAgentButton.textContent = 'AI分析中…'; }
   try {
-    const answer = await callAgent('analysis',
-      profileContext() + '\\n请根据这些真实学生信息，重新给出当前最重要的干预点和优先级，并说明依据。'
-    );
-    if (resultNode) resultNode.textContent = answer;
-    showToast('学情 Agent 已完成真实诊断');
+    const answer = await callAgent('analysis', profileContext() + '\\n请完成第一次学情诊断。');
+    renderDiagnosisResult(parseAgentJson(answer));
+    renderProfile();
   } catch (error) {
+    const resultNode = document.getElementById('analysis-agent-result');
     if (resultNode) resultNode.textContent = error.message;
     showToast('学情分析失败');
   } finally {
-    analysisAgentButton.disabled = false;
-    analysisAgentButton.textContent = 'AI重新诊断';
+    if (analysisAgentButton) { analysisAgentButton.disabled = false; analysisAgentButton.textContent = 'AI重新诊断'; }
   }
-});
+}
+
+analysisAgentButton?.addEventListener('click', runAnalysisAgent);
+
 document.getElementById('tutor-hint')?.addEventListener('click', () => {
   const s = tutorStages[tutorStage];
   const small = document.querySelector('#tutor-message small');
@@ -262,8 +366,9 @@ generatePlanButton?.addEventListener('click', async () => {
       '本次规划输入的剩余天数：' + days + ' 天。\\n' +
       '本次规划输入的每天学习时间：' + hours + ' 小时。'
     );
-    if (result) result.textContent = answer;
-    if (status) status.textContent = '已由真实 Agent 生成';
+    const data = parseAgentJson(answer);
+    renderPlanResult(data, days, minutes);
+    if (status) status.textContent = '真实 Agent 已生成';
     showToast('学习路径 Agent 已完成重新规划');
   } catch (error) {
     if (result) result.textContent = error.message;
@@ -271,6 +376,39 @@ generatePlanButton?.addEventListener('click', async () => {
     showToast('学习路径生成失败');
   }
 });
+
+function renderPlanResult(data, days, minutes) {
+  const title = document.getElementById('plan-result-title');
+  const status = document.getElementById('plan-status');
+  const priority1 = document.getElementById('plan-priority-1');
+  const priority2 = document.getElementById('plan-priority-2');
+  const stable = document.getElementById('plan-stable');
+  const budget = document.getElementById('plan-budget');
+  const weekPlan = document.getElementById('week-plan');
+  const note = document.getElementById('plan-agent-result');
+
+  if (title) title.textContent = data.title || (days + ' 天学习计划');
+  if (status) status.textContent = '真实 Agent 已生成';
+  if (priority1) priority1.textContent = data.highestPriority || '待诊断';
+  if (priority2) priority2.textContent = data.secondPriority || '待诊断';
+  if (stable) stable.textContent = data.stable || '待诊断';
+  if (budget) budget.textContent = (data.dailyMinutes || minutes) + ' 分钟';
+  if (note) note.textContent = data.adjustment || '完成训练后会继续动态重排。';
+
+  const weeks = Array.isArray(data.weeks) ? data.weeks : [];
+  if (weekPlan) {
+    weekPlan.innerHTML = weeks.length ? weeks.map((week, index) =>
+      '<article class="week-card ' + (index === 0 ? 'high' : index === weeks.length - 1 ? 'final' : 'mid') + '">' +
+        '<div class="week-index">' + escapeHtml(week.week || ('阶段 ' + (index + 1))) + '</div>' +
+        '<div class="week-main"><h4>' + escapeHtml(week.focus || '训练重点') + '</h4>' +
+        '<p>' + escapeHtml(week.goal || '') + '</p>' +
+        '<div class="week-tags"><span>Agent 规划</span><b>每天 ' + escapeHtml(String(week.minutesPerDay || data.dailyMinutes || minutes)) + ' 分钟</b></div>' +
+        '<small class="week-reason">' + escapeHtml(week.reason || '') + '</small></div>' +
+        '<div class="week-check">' + (index + 1) + '</div>' +
+      '</article>'
+    ).join('') : '<div class="empty-state"><b>Agent 暂时没有生成阶段计划</b><p>请重试一次。</p></div>';
+  }
+}
 
 let mistakeData = {};
 let currentMistake = null;
@@ -671,8 +809,9 @@ function parseSkillQuestion(raw) {
 async function requestDynamicSkillQuestion(lastCorrect) {
   const answer = await callAgent('skill',
     profileContext() + '\\n' +
-    '当前训练知识点：' + (profile?.subject || '当前学科') + '。\\n' +
-    '当前技能掌握度：' + (profile?.skillMastery || '尚未测得') + '。\\n' +
+    '当前重点知识点：' + (profile?.primaryTopic || profile?.subject || '当前学科') + '。\\n' +
+    '最近学情诊断：' + (profile?.diagnosis ? JSON.stringify(profile.diagnosis) : '尚未完成') + '\\n' +
+    '当前技能掌握度：' + (profile?.skillMastery || '尚未测得') + '。\\n'
     '当前训练难度：' + skillQuestions[skillLevelIndex].level + '。\\n' +
     '连续答对：' + skillStreak + '。\\n' +
     '上一题是否答对：' + (lastCorrect ? '是' : '否') + '。\\n' +
@@ -878,8 +1017,9 @@ function bindOnboarding() {
     saveProfile(nextProfile);
     renderProfile();
     closeOnboarding();
-    showToast('学习画像已建立');
+    showToast('学习画像已建立，正在生成第一次学情诊断');
     showPage('analysis');
+    setTimeout(() => runAnalysisAgent(), 180);
   });
 
   document.getElementById('edit-profile-btn')?.addEventListener('click', () => {
@@ -924,11 +1064,11 @@ renderSkillQuestion();
 
 if (profile) {
   skillMastery = Number(profile.skillMastery || 0);
-  setTimeout(() => {
-    if (!dynamicSkillQuestion) {
-      requestDynamicSkillQuestion(false).catch(() => {});
-    }
-  }, 250);
+  if (profile.diagnosis) {
+    setTimeout(() => {
+      if (!dynamicSkillQuestion) requestDynamicSkillQuestion(false).catch(() => {});
+    }, 250);
+  }
 } else {
   setTimeout(openOnboarding, 120);
 }

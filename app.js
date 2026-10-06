@@ -42,7 +42,7 @@ function profileContext() {
     '历史错题数量：' + Object.keys(mistakeData).length,
     '最近一次 AI 学情诊断：' + (profile.diagnosis ? JSON.stringify(profile.diagnosis) : '尚未诊断'),
     '当前重点训练：' + (profile.primaryTopic || '尚未确定')
-  ].join('['基础题','中等题','困难题','拔尖题']n');
+  ].join('\n');
 }
 
 function openOnboarding() {
@@ -174,7 +174,7 @@ chatForm.addEventListener('submit', async (event) => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        question: profile ? (profileContext() + '['基础题','中等题','困难题','拔尖题']n学生当前问题：' + text) : text,
+        question: profile ? (profileContext() + '\n学生当前问题：' + text) : text,
         imageData: sentImage?.data || null,
         imageMimeType: sentImage?.mimeType || null
       })
@@ -464,7 +464,7 @@ async function runAnalysisAgent() {
   try {
     const answer = await callAgent(
       'analysis',
-      profileContext() + '['基础题','中等题','困难题','拔尖题']n请在不改变学生事实的前提下，增强这份第一版画像；仅补充有依据的优先级和证据。'
+      profileContext() + '\n请在不改变学生事实的前提下，增强这份第一版画像；仅补充有依据的优先级和证据。'
     );
     const data = parseAgentJson(answer);
     if (data?.priorities?.length) {
@@ -1256,10 +1256,10 @@ async function analyzeSkillMistake(q,chosen,mistakeId){
 
   try {
     const raw=await callAgent('mistake',
-      profileContext()+'['基础题','中等题','困难题','拔尖题']n刚刚技能训练题：'+q.question+
-      '['基础题','中等题','困难题','拔尖题']n正确答案：'+q.answer+
-      '['基础题','中等题','困难题','拔尖题']n学生选择：'+chosen+
-      '['基础题','中等题','困难题','拔尖题']n请返回结构化 JSON，字段：reason,knowledge,errorType,evidence,basic,variant,comprehensive,masteryCheck。'
+      profileContext()+'\n刚刚技能训练题：'+q.question+
+      '\n正确答案：'+q.answer+
+      '\n学生选择：'+chosen+
+      '\n请返回结构化 JSON，字段：reason,knowledge,errorType,evidence,basic,variant,comprehensive,masteryCheck。'
     );
     const data=parseAgentJson(raw);
     if(mistakeData[mistakeId]){
@@ -1499,11 +1499,11 @@ refreshFirstUseStats();
 async function requestMotivationAgent() {
   const complete = document.getElementById('motivation-complete')?.textContent || '80%';
   const reason = await callAgent('motivation',
-    profileContext() + '['基础题','中等题','困难题','拔尖题']n' +
-    '今日完成度：' + complete + '['基础题','中等题','困难题','拔尖题']n' +
-    '连续学习：' + (Number(localStorage.getItem(STREAK_KEY) || 0)) + ' 天。['基础题','中等题','困难题','拔尖题']n' +
-    '待复盘错题：' + Object.keys(mistakeData).length + ' 道。['基础题','中等题','困难题','拔尖题']n' +
-    '今天主要高优先级任务：根据当前学生情况判断。['基础题','中等题','困难题','拔尖题']n' +
+    profileContext() + '\n' +
+    '今日完成度：' + complete + '\n' +
+    '连续学习：' + (Number(localStorage.getItem(STREAK_KEY) || 0)) + ' 天。\n' +
+    '待复盘错题：' + Object.keys(mistakeData).length + ' 道。\n' +
+    '今天主要高优先级任务：根据当前学生情况判断。\n' +
     '请判断今天应该继续、维持还是收尾，并给出最小必要任务。'
   );
   motivationTitle.textContent = reason.split('\n')[0] || reason;

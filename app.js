@@ -266,7 +266,7 @@ function parseAgentJson(raw) {
 
       if (inString) {
         if (escaped) escaped = false;
-        else if (char === '['基础题','中等题','困难题','拔尖题']') escaped = true;
+        else if (char === '\\') escaped = true;
         else if (char === '"') inString = false;
         continue;
       }

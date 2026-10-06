@@ -22,7 +22,7 @@ public class AgentController {
                     判断当前最值得干预的知识点，并给出有证据的优先级。
                     严禁编造学生没有提供的分数或掌握度。
                     如果没有足够数据判断数值掌握度，就返回 null，不要猜数字。
-                    严格只返回一个合法 JSON 对象，不要 Markdown，不要代码块：
+                    严格只返回一个合法 json 对象，不要 Markdown，不要代码块。输出必须是 json：
                     {
                       "summary":"一句话总体判断",
                       "priorities":[
@@ -123,9 +123,15 @@ public class AgentController {
         }
 
         try {
-            return ResponseEntity.ok(
-                    new AgentResponse(chatService.chatWithPrompt(systemPrompt, context))
-            );
+            boolean structured = "analysis".equals(request.getAgent())
+                    || "plan".equals(request.getAgent())
+                    || "skill".equals(request.getAgent());
+
+            String answer = structured
+                    ? chatService.chatWithJsonPrompt(systemPrompt, context)
+                    : chatService.chatWithPrompt(systemPrompt, context);
+
+            return ResponseEntity.ok(new AgentResponse(answer));
         } catch (IllegalStateException ex) {
             return ResponseEntity.internalServerError()
                     .body(new AgentResponse(ex.getMessage()));

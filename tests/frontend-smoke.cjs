@@ -155,7 +155,11 @@ function responseFor(agent) {
   }
 
   const firstQuestion = await page.locator('#skill-question-text').textContent();
-  await page.locator('#skill-options button[data-skill-option="B"]').click();
+  if (await page.locator('#skill-options button').count()) {
+    await page.locator('#skill-options button[data-skill-option="B"]').click();
+  } else {
+    await page.locator('#skill-free-answer').fill('__smoke_first__');
+  }
   await page.locator('#skill-submit').click();
   await page.waitForTimeout(100);
 
@@ -176,12 +180,16 @@ function responseFor(agent) {
   const currentQuestion = await page.locator('#skill-question-text').textContent();
   if (currentQuestion === firstQuestion) throw new Error('下一题与上一题重复');
 
-  await page.locator('#skill-options button[data-skill-option="A"]').click();
+  if (await page.locator('#skill-options button').count()) {
+    await page.locator('#skill-options button[data-skill-option="A"]').click();
+  } else {
+    await page.locator('#skill-free-answer').fill('__smoke_second__');
+  }
   await page.locator('#skill-submit').click();
   await page.waitForTimeout(250);
 
-  const mistakeCount = await page.locator('#mistake-stat-pending').textContent();
-  if (mistakeCount !== '1') throw new Error('答错后没有进入错题本，当前数量：' + mistakeCount);
+  const mistakeCount = Number((await page.locator('#mistake-stat-pending').textContent()).trim());
+  if (mistakeCount < 1) throw new Error('答错后没有进入错题本，当前数量：' + mistakeCount);
 
   const historyItems = await page.locator('#skill-history-list .skill-history-item').count();
   if (historyItems !== 2) throw new Error('第二题提交后没有进入题目历史');

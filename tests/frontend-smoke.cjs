@@ -61,6 +61,7 @@ function responseFor(agent) {
 }
 
 (async () => {
+  let planCalls = 0;
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   const errors = [];
@@ -72,6 +73,17 @@ function responseFor(agent) {
 
   await page.route('**/api/agent', async route => {
     const body = JSON.parse(route.request().postData() || '{}');
+    if (body.agent === 'plan') {
+      planCalls += 1;
+      if (planCalls === 2) {
+        await route.fulfill({
+          status: 502,
+          contentType: 'application/json',
+          body: JSON.stringify({ result: '模拟 Agent 失败' })
+        });
+        return;
+      }
+    }
     const result = responseFor(body.agent);
     await route.fulfill({
       status: 200,
@@ -119,6 +131,18 @@ function responseFor(agent) {
   await page.waitForTimeout(200);
   const weekCount = await page.locator('#week-plan .week-card').count();
   if (weekCount !== 4) throw new Error('学习路径没有渲染4个阶段，实际：' + weekCount);
+  if ((await page.locator('#plan-status').textContent()).indexOf('真实 Agent') < 0) {
+    throw new Error('真实 Agent 成功结果没有标记');
+  }
+
+  // 第二次规划故意模拟后端 502：页面必须保留可执行保底路径，而不是停在失败状态。
+  await page.locator('#generate-plan').click();
+  await page.waitForTimeout(200);
+  const fallbackCount = await page.locator('#week-plan .week-card').count();
+  if (fallbackCount < 2) throw new Error('Agent 失败后没有生成保底学习路径');
+  if ((await page.locator('#plan-status').textContent()).indexOf('保底路径') < 0) {
+    throw new Error('Agent 失败后没有进入保底状态');
+  }
 
   await page.locator('.nav-item[data-page="skills"]').click();
   await page.waitForTimeout(200);

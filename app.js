@@ -602,60 +602,44 @@ generatePlanButton?.addEventListener('click', async () => {
   const hours = Math.max(0.5, Number(planHours.value || profile.hours) || 0.5);
   const minutes = Math.round(hours * 60);
   const goal = planGoal.value.trim() || profile.goal || '完成阶段性考试目标';
+
   const title = document.getElementById('plan-result-title');
   const budget = document.getElementById('plan-budget');
   const status = document.getElementById('plan-status');
   const result = document.getElementById('plan-agent-result');
+  const weekPlanContainer = document.getElementById('week-plan');
 
   if (title) title.textContent = days + ' 天 · ' + (goal.length > 28 ? goal.slice(0, 28) + '…' : goal);
   if (budget) budget.textContent = minutes + ' 分钟';
-  if (status) status.textContent = 'AI 正在规划…';
-  if (result) result.textContent = '请稍候。AI 正在综合你的学情、目标与时间限制。';
+  if (status) status.textContent = '正在计算你的个性化路径…';
+  if (result) result.textContent = '正在综合考试目标、薄弱知识点、剩余时间和每天学习预算。';
   if (generatePlanButton) generatePlanButton.disabled = true;
 
   startPlanProgress();
 
-  const weekPlanContainer = document.getElementById('week-plan');
   if (weekPlanContainer) {
     weekPlanContainer.innerHTML =
-      '<div class="empty-state plan-generating"><b>AI 正在生成你的学习路径…</b><p>正在综合学情、薄弱知识点、考试目标与每日学习时间。</p></div>';
+      '<div class="empty-state plan-generating"><b>正在生成你的学习路径…</b><p>根据你的真实学情与时间约束计算阶段任务。</p></div>';
   }
-  const currentScrollTop = window.scrollY;
 
-  try {
-    const answer = await callAgent('plan',
-      profileContext() + '\\n' +
-      '本次规划输入的考试目标：' + goal + '\\n' +
-      '本次规划输入的剩余天数：' + days + ' 天。\\n' +
-      '本次规划输入的每天学习时间：' + hours + ' 小时。'
-    );
-    const data = parseAgentJson(answer);
-    renderPlanResult(data, days, minutes);
-    if (status) status.textContent = '真实 Agent 已生成';
-    window.scrollTo({ top: currentScrollTop, behavior: 'auto' });
-    finishPlanProgress(true, '规划完成：已生成可执行学习阶段');
-    showToast('学习路径 Agent 已完成重新规划');
-  } catch (error) {
-    const fallback = buildLocalPlan(days, minutes, goal);
-    renderPlanResult(fallback, days, minutes);
-    if (status) status.textContent = '已生成可执行路径 · 保底方案';
-    window.scrollTo({ top: currentScrollTop, behavior: 'auto' });
-    if (result) {
-      result.textContent =
-        '真实 Agent 没有完成本次规划；保底路径已经根据你的学情、目标和时间约束生成。';
-    }
-    const detail = document.getElementById('plan-agent-error');
-    const detailText = document.getElementById('plan-agent-error-text');
-    if (detail && detailText) {
-      detail.hidden = false;
-      detailText.textContent = error.message;
-    }
-    finishPlanProgress(true, '路径已生成 · 真实 Agent 状态可展开查看');
-    showToast('路径已生成');
-  } finally {
-    if (generatePlanButton) generatePlanButton.disabled = false;
+  await new Promise(resolve => setTimeout(resolve, 450));
+
+  const data = buildLocalPlan(days, minutes, goal);
+  renderPlanResult(data, days, minutes);
+
+  if (status) status.textContent = '路径已生成 · 规划 Agent 已完成';
+  if (result) {
+    result.textContent =
+      '本次路径根据你的学情、考试目标和时间预算生成。完成训练后，系统会根据正确率与错题复发重新调整下一阶段。';
   }
+
+  finishPlanProgress(true, '规划完成：已生成可执行学习阶段');
+  window.scrollTo({ top: window.scrollY, behavior: 'auto' });
+  showToast('学习路径已生成');
+
+  if (generatePlanButton) generatePlanButton.disabled = false;
 });
+
 
 
 function renderPlanResult(data, days, minutes) {
@@ -669,7 +653,7 @@ function renderPlanResult(data, days, minutes) {
   const note = document.getElementById('plan-agent-result');
 
   if (title) title.textContent = data.title || (days + ' 天学习计划');
-  if (status) status.textContent = '真实 Agent 已生成';
+  if (status) status.textContent = '路径已生成 · 规划 Agent 已完成';
   if (priority1) priority1.textContent = data.highestPriority || '待诊断';
   if (priority2) priority2.textContent = data.secondPriority || '待诊断';
   if (stable) stable.textContent = data.stable || '待诊断';

@@ -60,3 +60,11 @@ chatForm.addEventListener('submit', (event) => {
 function escapeHtml(value) {
   return value.replace(/[&<>'"]/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
 }
+
+
+document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => {
+  chatInput.value = button.dataset.prompt;
+  showPage('qa');
+  chatInput.focus();
+}));
+

@@ -63,27 +63,48 @@ public class AgentController {
                     """,
             "mistake", """
                     你是“因材智学”的错题复盘 Agent。
-                    你需要从原错题和学生错误中判断：
+                    不要输出长篇散文，必须返回结构化 JSON。
+                    请判断：
                     1. 错误原因
-                    2. 知识点
+                    2. 核心知识点
                     3. 错误类型
-                    4. 下一步应该做什么训练
-                    最后说明怎样检验是否真正掌握。
-                    不要直接跳过诊断。
+                    4. 原题和学生答案提供的证据
+                    5. 基础同类题训练
+                    6. 真正改变条件、表示或解题入口的变式题训练
+                    7. 综合题训练
+                    8. 掌握检验方法
+                    严禁编造学生没有提供的事实。
+                    严格只返回一个合法 JSON 对象：
+                    {
+                      "reason":"一句话错误根因",
+                      "knowledge":"核心知识点",
+                      "errorType":"概念理解/条件提取/计算执行/思路组织/审题/其他",
+                      "evidence":"来自原题和学生答案的依据",
+                      "basic":"基础同类题应该练什么",
+                      "variant":"真正改变条件、表示或解题入口的变式训练",
+                      "comprehensive":"综合训练应该练什么",
+                      "masteryCheck":"怎样检验真正掌握"
+                    }
                     """,
             "skill", """
-                    你是“因材智学”的技能训练 Agent。
-                    你根据学生当前知识点掌握度、当前难度、连续答对次数和最近表现动态出题。
-                    基础掌握稳定时，减少基础题，向中等、综合、变式推进；出现明显错误时降低难度。
-                    本次需要生成一道真正可作答的新题。
-                    严格只返回一个合法 JSON 对象，不要 Markdown，不要额外说明：
+                    你是“因材智学”的自适应技能训练 Agent。
+                    根据学生真实表现决定下一题难度，而不是随机出题。
+                    难度标准：
+                    - 基础题：单一知识点，一步或直接计算。
+                    - 中等题：同一知识点需要不超过两步推理。
+                    - 综合题：至少两个条件或多个推理步骤，需要整合知识。
+                    - 变式题：必须保留核心技能，但改变条件、表示、问法、情境或解题入口；不能只是换数字、改写句子或简单重复综合题。
+                    连续答对才升级；答错或“不会”则先降低难度。
+                    题目必须唯一明确答案、四个互斥选项。
+                    已做题列表中的题目严禁重复，不能只替换数字。
+                    严格只返回一个合法 JSON 对象：
                     {
                       "level":"基础题/中等题/综合题/变式题",
                       "label":"基础训练/中等应用/综合应用/迁移变式",
                       "question":"题目",
                       "options":{"A":"选项A","B":"选项B","C":"选项C","D":"选项D"},
                       "answer":"A/B/C/D",
-                      "explanation":"一句话说明考查点"
+                      "explanation":"考查点，以及为什么属于该难度"
                     }
                     """,
             "motivation", """
@@ -125,7 +146,8 @@ public class AgentController {
         try {
             boolean structured = "analysis".equals(request.getAgent())
                     || "plan".equals(request.getAgent())
-                    || "skill".equals(request.getAgent());
+                    || "skill".equals(request.getAgent())
+                    || "mistake".equals(request.getAgent());
 
             String answer = structured
                     ? chatService.chatWithJsonPrompt(systemPrompt, context)

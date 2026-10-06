@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>因材智学 - 个性化学习智能体</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">因</div>
+        <div>
+          <h1>因材智学</h1>
+          <p>个性化学习智能体</p>
+        </div>
+      </div>
+
+      <nav class="nav" aria-label="主导航">
+        <button class="nav-item active" data-page="dashboard">学习首页</button>
+        <button class="nav-item" data-page="analysis">我的学情</button>
+        <button class="nav-item" data-page="plan">学习路径</button>
+        <button class="nav-item" data-page="qa">AI答疑</button>
+        <button class="nav-item" data-page="mistakes">错题复盘</button>
+        <button class="nav-item" data-page="report">学习报告</button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="student-mini">
+          <div class="avatar">林</div>
+          <div>
+            <strong>林同学</strong>
+            <span>初二 · 数学</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div>
+          <span class="eyebrow">今日学习 · 10月7日</span>
+          <h2 id="page-title">你的今日学习计划</h2>
+        </div>
+        <button class="primary-btn" data-go="qa">问 AI</button>
+      </header>
+
+      <section class="page active-page" id="dashboard">
+        <div class="hero-card">
+          <div>
+            <span class="tag">AI 个性化学习</span>
+            <h3>今天继续攻克<br /><em>一次函数</em>与几何证明</h3>
+            <p>根据最近 7 天的答题表现，系统把“几何证明”列为当前最高优先级。</p>
+            <button class="primary-btn" data-go="plan">查看今日任务</button>
+          </div>
+          <div class="hero-score">
+            <span>综合掌握度</span>
+            <strong>72%</strong>
+            <small>较上周 +8%</small>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <article class="stat-card"><span>今日任务</span><strong>3 / 5</strong><small>已完成 60%</small></article>
+          <article class="stat-card"><span>连续学习</span><strong>5 天</strong><small>保持得很好</small></article>
+          <article class="stat-card"><span>待复盘错题</span><strong>7 道</strong><small>建议今天完成 3 道</small></article>
+          <article class="stat-card"><span>本周学习</span><strong>6.4 h</strong><small>目标 8 h</small></article>
+        </div>
+
+        <div class="section-grid">
+          <section class="panel">
+            <div class="panel-head"><h3>今日学习任务</h3><button class="text-btn" data-go="plan">全部计划</button></div>
+            <div class="task-list">
+              <label class="task-item done"><input type="checkbox" checked /><span><b>复习一次函数概念</b><small>20 分钟 · 已完成</small></span></label>
+              <label class="task-item"><input type="checkbox" /><span><b>完成 5 道基础题</b><small>30 分钟 · 推荐</small></span></label>
+              <label class="task-item"><input type="checkbox" /><span><b>复盘 3 道几何错题</b><small>25 分钟 · 高优先级</small></span></label>
+              <label class="task-item"><input type="checkbox" /><span><b>完成 2 道变式题</b><small>25 分钟 · 训练</small></span></label>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><h3>薄弱知识点</h3><button class="text-btn" data-go="analysis">查看学情</button></div>
+            <div class="weak-list">
+              <div class="weak-item"><div><b>几何证明</b><span>掌握度 48%</span></div><div class="progress"><i style="width:48%"></i></div></div>
+              <div class="weak-item"><div><b>一次函数</b><span>掌握度 65%</span></div><div class="progress"><i style="width:65%"></i></div></div>
+              <div class="weak-item"><div><b>勾股定理</b><span>掌握度 71%</span></div><div class="progress"><i style="width:71%"></i></div></div>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="page" id="analysis">
+        <div class="page-intro"><span class="tag">学情分析</span><h3>AI 正在理解你的学习状态</h3><p>系统结合测评、答题记录和错题数据，识别当前薄弱知识点。</p></div>
+        <div class="analysis-grid">
+          <article class="panel big-panel"><div class="panel-head"><h3>学科掌握情况</h3><span class="pill">初二数学</span></div>
+            <div class="subject-score"><b>72%</b><span>综合掌握度</span></div>
+            <div class="score-bars">
+              <div><span>数与代数</span><i><em style="width:78%"></em></i><b>78%</b></div>
+              <div><span>图形与几何</span><i><em style="width:56%"></em></i><b>56%</b></div>
+              <div><span>函数</span><i><em style="width:65%"></em></i><b>65%</b></div>
+              <div><span>统计与概率</span><i><em style="width:84%"></em></i><b>84%</b></div>
+            </div>
+          </article>
+          <article class="panel big-panel"><div class="panel-head"><h3>AI 学情结论</h3><span class="pill warning">需重点关注</span></div>
+            <ul class="insights">
+              <li><b>几何证明</b><span>证明思路组织能力较弱，建议增加分步引导训练。</span></li>
+              <li><b>一次函数</b><span>基础概念已掌握，但综合应用题正确率偏低。</span></li>
+              <li><b>学习节奏</b><span>晚间学习完成率较高，建议把重点任务放在 19:00–21:00。</span></li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section class="page" id="plan">
+        <div class="page-intro"><span class="tag">学习路径</span><h3>你的 7 天个性化学习路径</h3><p>根据当前学情、目标和每日可用时间动态安排任务。</p></div>
+        <div class="timeline">
+          <article class="timeline-item current"><div class="day">Day 1</div><div class="timeline-body"><h3>几何证明基础</h3><p>复习证明格式 → 典型例题 → 3 道基础题</p><span>预计 65 分钟</span></div></article>
+          <article class="timeline-item"><div class="day">Day 2</div><div class="timeline-body"><h3>辅助线思路训练</h3><p>认识常见辅助线 → 分步提示 → 4 道变式题</p><span>预计 70 分钟</span></div></article>
+          <article class="timeline-item"><div class="day">Day 3</div><div class="timeline-body"><h3>一次函数综合应用</h3><p>图像与解析式综合题 → 错题回收</p><span>预计 60 分钟</span></div></article>
+          <article class="timeline-item"><div class="day">Day 4–7</div><div class="timeline-body"><h3>综合训练与复盘</h3><p>根据前 3 天表现，AI 自动调整任务难度和复习顺序。</p><span>动态生成</span></div></article>
+        </div>
+      </section>
+
+      <section class="page" id="qa">
+        <div class="page-intro"><span class="tag">AI 答疑</span><h3>不会做，不代表直接给你答案</h3><p>AI 会先判断你卡在哪里，再逐步引导。</p></div>
+        <div class="qa-shell panel">
+          <div class="chat-log" id="chat-log">
+            <div class="chat assistant"><div class="chat-avatar">AI</div><div><p>你好，林同学。你可以直接发题目，或者告诉我你具体卡在哪一步。</p><small>因材智学 · 学习辅导</small></div></div>
+            <div class="chat assistant"><div class="chat-avatar">AI</div><div><p>例如你可以问：“我知道一次函数的公式，但不会从题目里找条件。”</p></div></div>
+          </div>
+          <form class="chat-form" id="chat-form"><input id="chat-input" placeholder="输入你的问题，例如：为什么这道题要作辅助线？" autocomplete="off" /><button class="primary-btn">发送</button></form>
+        </div>
+      </section>
+
+      <section class="page" id="mistakes">
+        <div class="page-intro"><span class="tag">错题复盘</span><h3>不是把错题存起来，而是把错误练会</h3><p>系统定位错误知识点，并自动生成同类题与变式题。</p></div>
+        <div class="mistake-grid">
+          <article class="mistake-card"><div class="mistake-top"><span class="pill danger">待复盘</span><span>10月6日</span></div><h3>一次函数图像与解析式</h3><p>错误类型：条件提取错误</p><div class="mistake-actions"><button data-toast="已开始复盘">开始复盘</button><button data-toast="已生成3道变式题">生成变式题</button></div></article>
+          <article class="mistake-card"><div class="mistake-top"><span class="pill danger">待复盘</span><span>10月5日</span></div><h3>三角形全等判定</h3><p>错误类型：定理选择错误</p><div class="mistake-actions"><button data-toast="已开始复盘">开始复盘</button><button data-toast="已生成3道变式题">生成变式题</button></div></article>
+          <article class="mistake-card"><div class="mistake-top"><span class="pill success">已掌握</span><span>10月2日</span></div><h3>勾股定理基础应用</h3><p>连续 3 次训练正确</p><div class="mistake-actions"><button data-toast="已查看复盘记录">查看复盘</button></div></article>
+        </div>
+      </section>
+
+      <section class="page" id="report">
+        <div class="page-intro"><span class="tag">学习报告</span><h3>本周，你真正学会了什么？</h3><p>把学习过程变成可追踪的成长记录。</p></div>
+        <div class="report-grid">
+          <article class="panel report-kpi"><span>本周学习时长</span><strong>6.4 h</strong><small>目标 8 h</small></article>
+          <article class="panel report-kpi"><span>完成任务</span><strong>18</strong><small>完成率 82%</small></article>
+          <article class="panel report-kpi"><span>错题减少</span><strong>23%</strong><small>较上周</small></article>
+          <article class="panel report-kpi"><span>知识点提升</span><strong>8 个</strong><small>达到掌握标准</small></article>
+        </div>
+        <article class="panel report-summary"><div class="panel-head"><h3>AI 本周总结</h3><span class="pill success">持续进步</span></div><p>你在基础知识点上的掌握度提升明显，本周最大的突破是“一次函数”。目前最值得投入时间的是“几何证明”，建议继续保持短时、高频的训练方式，并优先完成 7 天学习路径中的高优先级任务。</p></article>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>

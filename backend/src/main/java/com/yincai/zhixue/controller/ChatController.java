@@ -70,8 +70,10 @@ public class ChatController {
             return ResponseEntity.internalServerError()
                     .body(new ChatResponse(ex.getMessage()));
         } catch (RuntimeException ex) {
+            String message = ex.getMessage();
+            if (message == null || message.isBlank()) message = "未返回具体错误";
             return ResponseEntity.status(502)
-                    .body(new ChatResponse("AI 服务暂时不可用，请稍后再试。"));
+                    .body(new ChatResponse("AI 服务调用失败：" + message));
         }
     }
 

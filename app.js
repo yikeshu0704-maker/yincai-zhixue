@@ -329,10 +329,11 @@ function renderDiagnosisResult(data) {
     map.innerHTML = list.length ? list.map(item => {
       const mastery = typeof item.mastery === 'number' ? item.mastery : null;
       const priorityClass = item.priority === '高' ? 'priority-high' : item.priority === '中' ? 'priority-mid' : '';
-      return '<div class="mastery-row ' + priorityClass + '">' +
+      const pendingClass = mastery === null ? ' pending' : '';
+      return '<div class="mastery-row ' + priorityClass + pendingClass + '">' +
         '<div class="mastery-name"><b>' + escapeHtml(item.name || '知识点') + '</b><span>' + escapeHtml(item.priority || '待诊断') + '</span></div>' +
-        '<div class="mastery-bar"><i style="width:' + (mastery === null ? 10 : mastery) + '%"></i></div>' +
-        '<strong>' + (mastery === null ? '待诊断' : mastery + '%') + '</strong>' +
+        '<div class="mastery-bar"><i style="width:' + (mastery === null ? 0 : mastery) + '%"></i></div>' +
+        '<strong>' + (mastery === null ? '待测' : mastery + '%') + '</strong>' +
       '</div>';
     }).join('') : '<div class="empty-state"><b>AI 暂时无法形成知识点地图</b><p>请先补充更多测试结果或答题记录。</p></div>';
   }
@@ -468,11 +469,13 @@ async function runAnalysisAgent() {
     const resultNode = document.getElementById('analysis-agent-result');
     if (resultNode) {
       resultNode.innerHTML =
-        '<b>第一版画像已建立：</b>真实 Agent 本次未完成。' +
-        '<br><span>原因：' + escapeHtml(error.message) + '</span>';
+        '<b>第一版学习画像已建立</b>' +
+        '<br><span>当前掌握度先显示“待测”，后续会根据技能训练和错题数据自动修正。</span>' +
+        '<details class="agent-error-detail"><summary>查看本次 AI 请求状态</summary><p>' +
+        escapeHtml(error.message) + '</p></details>';
     }
-    finishAnalysisProgress(true, '已建立第一版画像 · 等待后续真实训练校正');
-    showToast('AI暂不可用，已用你的真实填写建立第一版画像');
+    finishAnalysisProgress(true, '已建立第一版画像 · 等待真实训练校正');
+    showToast('已建立第一版学习画像');
   } finally {
     if (analysisAgentButton) {
       analysisAgentButton.disabled = false;
@@ -635,7 +638,7 @@ generatePlanButton?.addEventListener('click', async () => {
   } catch (error) {
     const fallback = buildLocalPlan(days, minutes, goal);
     renderPlanResult(fallback, days, minutes);
-    if (status) status.textContent = '真实 Agent 本次失败 · 已生成保底路径';
+    if (status) status.textContent = '已生成可执行路径 · 保底方案';
     window.scrollTo({ top: currentScrollTop, behavior: 'auto' });
     if (result) {
       result.textContent =
@@ -647,8 +650,8 @@ generatePlanButton?.addEventListener('click', async () => {
       detail.hidden = false;
       detailText.textContent = error.message;
     }
-    finishPlanProgress(true, '已生成保底路径 · 可查看本次 AI 请求错误');
-    showToast('本次 AI 规划失败，已保留可执行路径');
+    finishPlanProgress(true, '路径已生成 · 真实 Agent 状态可展开查看');
+    showToast('路径已生成');
   } finally {
     if (generatePlanButton) generatePlanButton.disabled = false;
   }

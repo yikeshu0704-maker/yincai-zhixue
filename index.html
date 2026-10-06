@@ -114,6 +114,7 @@
               <span class="eyebrow">当前学习画像</span>
               <h3 id="profile-title">尚未建立学习画像</h3>
               <p id="profile-summary">请先填写你的基本信息、考试目标和当前学习情况。</p>
+            <div class="profile-diagnosis-state" id="profile-diagnosis-state">尚未完成 AI 学情诊断</div>
             </div>
           </div>
           <div class="hero-actions">
@@ -128,6 +129,14 @@
           <article class="evidence-card"><span class="evidence-icon">03</span><div><b>学习目标</b><p id="evidence-goal">等待填写</p></div></article>
           <article class="evidence-card"><span class="evidence-icon">04</span><div><b>当前状态</b><p id="evidence-state">等待填写</p></div></article>
           <article class="evidence-card"><span class="evidence-icon">05</span><div><b>时间约束</b><p id="evidence-time">等待填写</p></div></article>
+        </div>
+
+        <div class="analysis-progress" id="analysis-progress-panel">
+          <div class="analysis-progress-head">
+            <span>AI 学情诊断</span>
+            <b id="analysis-progress-text">等待开始（通常需要十几秒）</b>
+          </div>
+          <div class="analysis-progress-track"><i id="analysis-progress-bar"></i></div>
         </div>
 
         <div class="analysis-grid">
@@ -216,7 +225,7 @@
           <div class="plan-progress" id="plan-progress-panel">
             <div class="plan-progress-head">
               <span>AI 规划进度</span>
-              <b id="plan-progress-text">等待开始</b>
+              <b id="plan-progress-text">等待开始（通常需要十几秒）</b>
             </div>
             <div class="plan-progress-track"><i id="plan-progress-bar"></i></div>
           </div>

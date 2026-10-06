@@ -15,7 +15,7 @@ import java.time.Duration;
 @Service
 public class ChatService {
 
-    private static final String SYSTEM_PROMPT = """
+    private static final String DEFAULT_SYSTEM_PROMPT = """
             你是“因材智学”的 AI 数学助教。
             你的目标不是直接把答案扔给学生，而是帮助学生真正学会。
 
@@ -35,18 +35,21 @@ public class ChatService {
     private final String baseUrl;
     private final String apiKey;
     private final String model;
+    private final long requestTimeoutSeconds;
 
     public ChatService(
             ObjectMapper objectMapper,
             @Value("${model.base-url}") String baseUrl,
             @Value("${model.api-key}") String apiKey,
             @Value("${model.name}") String model,
-            @Value("${model.connect-timeout-seconds:10}") long connectTimeoutSeconds) {
+            @Value("${model.connect-timeout-seconds:10}") long connectTimeoutSeconds,
+            @Value("${model.request-timeout-seconds:90}") long requestTimeoutSeconds) {
 
         this.objectMapper = objectMapper;
         this.baseUrl = baseUrl;
         this.apiKey = apiKey;
         this.model = model;
+        this.requestTimeoutSeconds = requestTimeoutSeconds;
 
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(connectTimeoutSeconds))
@@ -54,6 +57,10 @@ public class ChatService {
     }
 
     public String chat(String question) {
+        return chatWithPrompt(DEFAULT_SYSTEM_PROMPT, question);
+    }
+
+    public String chatWithPrompt(String systemPrompt, String userPrompt) {
         validateConfiguration();
 
         try {
@@ -65,15 +72,15 @@ public class ChatService {
 
             var system = messages.addObject();
             system.put("role", "system");
-            system.put("content", SYSTEM_PROMPT);
+            system.put("content", systemPrompt);
 
             var user = messages.addObject();
             user.put("role", "user");
-            user.put("content", question);
+            user.put("content", userPrompt);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl))
-                    .timeout(Duration.ofSeconds(90))
+                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + apiKey)
                     .POST(HttpRequest.BodyPublishers.ofString(

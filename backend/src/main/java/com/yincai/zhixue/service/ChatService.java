@@ -60,6 +60,43 @@ public class ChatService {
         return chatWithPrompt(DEFAULT_SYSTEM_PROMPT, question);
     }
 
+    public String chatWithImage(String question, String imageData, String imageMimeType) {
+        validateConfiguration();
+
+        String safeQuestion = question == null || question.isBlank()
+                ? "请先识别这张图片中的数学题，再判断我卡在哪里，并先给我提示，不要直接给完整答案。"
+                : question.trim();
+
+        try {
+            var body = objectMapper.createObjectNode();
+            body.put("model", model);
+            body.put("temperature", 0.3);
+
+            var messages = body.putArray("messages");
+
+            var system = messages.addObject();
+            system.put("role", "system");
+            system.put("content", DEFAULT_SYSTEM_PROMPT);
+
+            var user = messages.addObject();
+            user.put("role", "user");
+            var content = user.putArray("content");
+
+            var textBlock = content.addObject();
+            textBlock.put("type", "text");
+            textBlock.put("text", safeQuestion);
+
+            var imageBlock = content.addObject();
+            imageBlock.put("type", "image_url");
+            var imageUrl = imageBlock.putObject("image_url");
+            imageUrl.put("url", imageData);
+
+            return sendRequest(body);
+        } catch (IllegalArgumentException ex) {
+            throw new RuntimeException("图片请求格式无效", ex);
+        }
+    }
+
     public String chatWithPrompt(String systemPrompt, String userPrompt) {
         validateConfiguration();
 
@@ -78,6 +115,15 @@ public class ChatService {
             user.put("role", "user");
             user.put("content", userPrompt);
 
+            return sendRequest(body);
+
+        } catch (IllegalArgumentException ex) {
+            throw new RuntimeException("MODEL_BASE_URL 配置无效", ex);
+        }
+    }
+
+    private String sendRequest(JsonNode body) {
+        try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl))
                     .timeout(Duration.ofSeconds(requestTimeoutSeconds))
@@ -92,9 +138,7 @@ public class ChatService {
                     httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new RuntimeException(
-                        "模型 API 返回 HTTP " + response.statusCode()
-                );
+                throw new RuntimeException("模型 API 返回 HTTP " + response.statusCode());
             }
 
             JsonNode root = objectMapper.readTree(response.body());
@@ -115,8 +159,6 @@ public class ChatService {
             throw new RuntimeException("AI 请求被中断", ex);
         } catch (IOException ex) {
             throw new RuntimeException("无法连接模型 API", ex);
-        } catch (IllegalArgumentException ex) {
-            throw new RuntimeException("MODEL_BASE_URL 配置无效", ex);
         }
     }
 

@@ -5,8 +5,10 @@ const titleMap = {
   analysis: '你的学习情况分析',
   plan: 'AI 为你安排的学习路径',
   qa: 'AI 答疑辅导',
+  skills: '自适应技能训练',
   mistakes: '你的错题复盘中心',
-  report: '本周学习报告'
+  report: '本周学习报告',
+  motivation: '今日学习激励'
 };
 
 function showPage(id) {
@@ -251,3 +253,140 @@ document.getElementById('review-next')?.addEventListener('click', () => {
 });
 
 renderMistake();
+
+
+const skillQuestions = [
+  {
+    level:'基础题', label:'基础训练', question:'已知一次函数 y = 2x + 3，当 x = 1 时，y = ?', options:{A:'3',B:'5',C:'6',D:'8'}, answer:'B'
+  },
+  {
+    level:'中等题', label:'中等应用', question:'一次函数 y = 2x + b 经过点（1，4），则 b = ?', options:{A:'1',B:'2',C:'3',D:'4'}, answer:'B'
+  },
+  {
+    level:'综合题', label:'综合应用', question:'一次函数 y = kx + b 的图象经过 A(1,3) 和 B(3,7)，则该函数的解析式是？', options:{A:'y = x + 2',B:'y = 2x + 1',C:'y = 3x',D:'y = 2x - 1'}, answer:'B'
+  },
+  {
+    level:'变式题', label:'迁移变式', question:'直线 y = 2x + 1 向上平移 3 个单位后经过点 P。若 P 的横坐标为 2，则 P 的纵坐标为？', options:{A:'5',B:'6',C:'8',D:'9'}, answer:'C'
+  }
+];
+let skillLevelIndex = 2;
+let skillQuestionNo = 1;
+let skillStreak = 0;
+let skillMastery = 65;
+let selectedSkillOption = '';
+
+function renderSkillQuestion() {
+  const q = skillQuestions[skillLevelIndex];
+  const levelTitle = document.getElementById('skill-level-title');
+  const levelPill = document.getElementById('skill-level-pill');
+  const question = document.getElementById('skill-question-text');
+  const no = document.getElementById('skill-question-no');
+  const options = document.getElementById('skill-options');
+  const current = document.getElementById('skill-current-level');
+  const next = document.getElementById('skill-next-level');
+  const mastery = document.getElementById('skill-mastery');
+  const decisionPill = document.getElementById('skill-decision-pill');
+  const decisionText = document.getElementById('skill-decision-text');
+  if (!levelTitle || !options) return;
+  levelTitle.textContent = q.level;
+  levelPill.textContent = q.label;
+  question.textContent = q.question;
+  no.textContent = skillQuestionNo;
+  current.textContent = q.level;
+  mastery.textContent = skillMastery + '%';
+  decisionPill.textContent = '正在训练' + q.level;
+  decisionText.textContent = skillLevelIndex <= 1
+    ? '当前表现提示需要补强基础，再回到更高难度。'
+    : skillLevelIndex === 2
+      ? '基础题已稳定，当前需要把概念迁移到综合问题。'
+      : '综合题表现良好，Agent 开始测试更陌生的变式情境。';
+  const nextLabel = skillLevelIndex < 3 ? skillQuestions[skillLevelIndex + 1].level : '维持变式';
+  next.textContent = skillLevelIndex < 3 ? nextLabel : '维持变式';
+  options.innerHTML = Object.entries(q.options)
+    .map(([key,value]) => '<button data-skill-option="' + key + '">' + key + '. ' + value.replace(/^\w\.\s*/, '') + '</button>')
+    .join('');
+  options.querySelectorAll('[data-skill-option]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedSkillOption = btn.dataset.skillOption;
+      options.querySelectorAll('button').forEach(x => x.classList.remove('selected'));
+      btn.classList.add('selected');
+    });
+  });
+  const feedback=document.getElementById('skill-feedback');
+  if(feedback){
+    feedback.className='skill-feedback';
+    feedback.innerHTML='<span>AI 评估规则</span><p>连续答对会提高难度；出现错误会先回到更适合当前状态的题型。</p>';
+  }
+}
+
+function evaluateSkillAnswer(correct) {
+  const feedback=document.getElementById('skill-feedback');
+  const resultTitle=document.getElementById('skill-result-title');
+  if(correct){
+    skillStreak += 1;
+    skillMastery = Math.min(100, skillMastery + 8);
+    if(skillStreak >= 2 && skillLevelIndex < 3) skillLevelIndex += 1;
+    if(feedback){
+      feedback.className='skill-feedback correct';
+      feedback.innerHTML='<span>答对了 · Agent 已更新学情</span><p>这次表现支持你进入更高难度。当前掌握度提升到 ' + skillMastery + '%。</p>';
+    }
+    if(resultTitle) resultTitle.textContent='表现稳定，难度已上调';
+  }else{
+    skillStreak = 0;
+    skillMastery = Math.max(0, skillMastery - 5);
+    if(skillLevelIndex > 0) skillLevelIndex -= 1;
+    if(feedback){
+      feedback.className='skill-feedback wrong';
+      feedback.innerHTML='<span>这次先降一个难度</span><p>不要继续堆更难的题。Agent 判断你需要先补强当前能力，再重新尝试。</p>';
+    }
+    if(resultTitle) resultTitle.textContent='出现卡点，Agent 已降低难度';
+  }
+  document.getElementById('skill-streak').textContent=skillStreak;
+  skillQuestionNo += 1;
+  renderSkillQuestion();
+}
+
+document.getElementById('skill-submit')?.addEventListener('click', () => {
+  const q=skillQuestions[skillLevelIndex];
+  if(!selectedSkillOption){ showToast('先选择一个答案'); return; }
+  const correct=selectedSkillOption===q.answer;
+  evaluateSkillAnswer(correct);
+  selectedSkillOption='';
+});
+
+document.getElementById('skill-skip')?.addEventListener('click', () => {
+  skillStreak=0;
+  skillMastery=Math.max(0, skillMastery-3);
+  if(skillLevelIndex>0) skillLevelIndex -= 1;
+  skillQuestionNo += 1;
+  selectedSkillOption='';
+  showToast('已记录“不会”，下一题会降低难度');
+  renderSkillQuestion();
+});
+
+renderSkillQuestion();
+
+const motivationComplete=document.getElementById('motivation-complete');
+const motivationBar=document.getElementById('motivation-complete-bar');
+const motivationTitle=document.getElementById('motivation-title');
+const motivationReason=document.getElementById('motivation-reason');
+const motivationStatus=document.getElementById('motivation-status');
+
+document.getElementById('finish-one-task')?.addEventListener('click', () => {
+  if(!motivationComplete) return;
+  motivationComplete.textContent='100%';
+  motivationBar.style.width='100%';
+  motivationTitle.textContent='今天已经达到主要目标，不建议再增加新任务。';
+  motivationReason.textContent='当前学习任务已经完成。把剩余时间留给休息或自由复习，不再为了“完成更多”而堆叠负担。';
+  motivationStatus.textContent='今日完成';
+  motivationStatus.classList.add('done');
+  showToast('Agent 已重新评估：今天可以收尾');
+});
+
+document.getElementById('reduce-load')?.addEventListener('click', () => {
+  if(!motivationComplete) return;
+  motivationTitle.textContent='今天只保留 3 道高价值错题复盘，其余任务顺延。';
+  motivationReason.textContent='你已经保持 5 天连续学习。降低今天的任务量不会破坏计划，系统会把未完成内容重新排入后续路径。';
+  motivationStatus.textContent='已降低负担';
+  showToast('已把低优先级任务顺延');
+});

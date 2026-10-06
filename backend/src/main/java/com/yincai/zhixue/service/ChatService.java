@@ -259,7 +259,9 @@ public class ChatService {
                     httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
-                throw new RuntimeException("模型 API 返回 HTTP " + response.statusCode());
+                String detail = response.body() == null ? "" : response.body();
+                if (detail.length() > 500) detail = detail.substring(0, 500);
+                throw new RuntimeException("模型 API 返回 HTTP " + response.statusCode() + ": " + detail);
             }
 
             JsonNode root = objectMapper.readTree(response.body());

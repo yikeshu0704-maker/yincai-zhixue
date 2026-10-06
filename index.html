@@ -355,6 +355,13 @@
               <span>AI 评估规则</span>
               <p>连续答对会提高难度；出现错误会先回到更适合当前状态的题型。</p>
             </div>
+            <div class="skill-generation" id="skill-generation" hidden>
+              <div class="skill-spinner" aria-hidden="true"></div>
+              <div>
+                <b id="skill-generation-title">AI 正在出题…</b>
+                <p id="skill-generation-text">正在读取你的学情、最近表现和已做题记录。</p>
+              </div>
+            </div>
             <div class="skill-actions">
               <button class="ghost-btn" id="skill-skip" disabled>这题我不会</button>
               <button class="ghost-btn" id="skill-next" hidden>下一题</button>
@@ -576,6 +583,6 @@
     </section>
   </div>
   <div class="toast" id="toast"></div>
-  <script src="app.js?v=20261007-fix5"></script>
+  <script src="app.js?v=20261007-fix6"></script>
 </body>
 </html>

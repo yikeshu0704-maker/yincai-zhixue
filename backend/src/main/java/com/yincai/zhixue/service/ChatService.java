@@ -100,14 +100,11 @@ public class ChatService {
     public String chatWithJsonPrompt(String systemPrompt, String userPrompt) {
         validateConfiguration();
 
-        RuntimeException structuredError = null;
-
-        // 第一层：DeepSeek 原生 JSON Output。
         try {
             var body = objectMapper.createObjectNode();
             body.put("model", model);
-            body.put("temperature", 0.2);
-            body.put("max_tokens", 1800);
+            body.put("temperature", 0.1);
+            body.put("max_tokens", 900);
 
             var thinking = body.putObject("thinking");
             thinking.put("type", "disabled");
@@ -122,7 +119,6 @@ public class ChatService {
             system.put("content",
                     systemPrompt
                             + "\n\n只输出一个完整合法的 JSON 对象。"
-                            + "\n必须包含 system prompt 中要求的字段。"
                             + "\n不要 Markdown、不要代码块、不要额外解释文字。");
 
             var user = messages.addObject();
@@ -132,50 +128,20 @@ public class ChatService {
 
             String answer = sendRequest(body);
             String normalized = normalizeJson(answer);
-            if (normalized != null) {
-                return normalized;
+            if (normalized == null) {
+                throw new RuntimeException("模型返回内容不是合法 JSON");
             }
-            structuredError = new RuntimeException("JSON Output 返回内容无法解析");
+            return normalized;
         } catch (RuntimeException ex) {
-            structuredError = ex;
-        }
-
-        // 第二层：关闭 JSON Output，用普通文本请求兜底，再从文本中提取 JSON。
-        try {
-            var fallbackBody = objectMapper.createObjectNode();
-            fallbackBody.put("model", model);
-            fallbackBody.put("temperature", 0.1);
-            fallbackBody.put("max_tokens", 1800);
-
-            var fallbackThinking = fallbackBody.putObject("thinking");
-            fallbackThinking.put("type", "disabled");
-
-            var messages = fallbackBody.putArray("messages");
-
-            var system = messages.addObject();
-            system.put("role", "system");
-            system.put("content",
-                    systemPrompt
-                            + "\n\n你的回复必须是一个完整 JSON 对象。"
-                            + "即使不能严格满足，也不要解释，只返回 JSON。");
-
-            var user = messages.addObject();
-            user.put("role", "user");
-            user.put("content", userPrompt);
-
-            String answer = sendRequest(fallbackBody);
-            String normalized = normalizeJson(answer);
-            if (normalized != null) {
-                return normalized;
-            }
-
-            throw new RuntimeException("普通文本兜底返回内容也无法解析为 JSON");
-        } catch (RuntimeException fallbackError) {
-            String first = structuredError == null ? "未知结构化请求错误" : structuredError.getMessage();
-            String second = fallbackError.getMessage() == null ? "未知兜底请求错误" : fallbackError.getMessage();
-            throw new RuntimeException("Agent 结构化调用失败。首选 JSON：" + first + "；兜底请求：" + second, fallbackError);
+            throw new RuntimeException("Agent 结构化调用失败：" + safeMessage(ex), ex);
         }
     }
+
+    private String safeMessage(RuntimeException ex) {
+        String message = ex.getMessage();
+        return message == null || message.isBlank() ? "未知错误" : message;
+    }
+
 
     private String normalizeJson(String raw) {
         if (raw == null || raw.isBlank()) {
@@ -272,7 +238,7 @@ public class ChatService {
         try {
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl))
-                    .timeout(Duration.ofSeconds(requestTimeoutSeconds))
+                    .timeout(Duration.ofSeconds(Math.min(requestTimeoutSeconds, 25)))
                     .header("Content-Type", "application/json")
                     .header("Authorization", "Bearer " + apiKey)
                     .POST(HttpRequest.BodyPublishers.ofString(

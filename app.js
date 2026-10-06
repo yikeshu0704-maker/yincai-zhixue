@@ -505,6 +505,34 @@ function finishPlanProgress(success, message) {
   }
 }
 
+function buildLocalPlan(days, minutes, goal) {
+  const priorities = Array.isArray(profile?.diagnosis?.priorities)
+    ? profile.diagnosis.priorities
+    : [];
+  const first = priorities[0]?.name || profile?.primaryTopic || profile?.subject || '当前薄弱知识点';
+  const second = priorities[1]?.name || '综合应用';
+  const stable = priorities[2]?.name || '待诊断';
+  const stageCount = days <= 7 ? 2 : days <= 14 ? 3 : 4;
+  const daily = Math.max(30, minutes);
+
+  const stages = [
+    { week: '第1阶段', focus: first + ' · 基础补强', goal: '补齐核心概念与典型方法', minutesPerDay: Math.round(daily * 0.3), reason: '先处理当前最高优先级问题。' },
+    { week: '第2阶段', focus: first + ' · 综合应用', goal: '从基础题过渡到中等和综合题', minutesPerDay: Math.round(daily * 0.3), reason: '减少重复基础题，进入真正薄弱的应用环节。' },
+    { week: '第3阶段', focus: second + ' · 专项训练', goal: '集中解决第二优先级知识点', minutesPerDay: Math.round(daily * 0.25), reason: '第一重点稳定后继续补强第二重点。' },
+    { week: '第4阶段', focus: '综合训练 + 错题复习', goal: '检验迁移能力并回收重复错误', minutesPerDay: Math.round(daily * 0.15), reason: '最后阶段用于整合与掌握检验。' }
+  ].slice(0, stageCount);
+
+  return {
+    title: days + ' 天 · ' + goal,
+    highestPriority: first,
+    secondPriority: second,
+    stable,
+    dailyMinutes: daily,
+    weeks: stages,
+    adjustment: '每 3 天根据正确率、错题复发和完成率重新调整下一阶段。'
+  };
+}
+
 generatePlanButton?.addEventListener('click', async () => {
   if (!profile) {
     openOnboarding();
@@ -542,10 +570,17 @@ generatePlanButton?.addEventListener('click', async () => {
     finishPlanProgress(true, '规划完成：已生成可执行学习阶段');
     showToast('学习路径 Agent 已完成重新规划');
   } catch (error) {
-    if (result) result.textContent = error.message;
-    if (status) status.textContent = 'Agent 调用失败';
-    finishPlanProgress(false, '生成失败：' + error.message);
-    showToast('学习路径生成失败');
+    // AI 服务异常时不要让学生停在“失败页”，自动生成基于真实画像与时间约束的可执行保底路径。
+    const fallback = buildLocalPlan(days, minutes, goal);
+    renderPlanResult(fallback, days, minutes);
+    if (status) status.textContent = 'Agent 暂时不可用 · 已生成保底路径';
+    if (result) {
+      result.textContent =
+        '本次真实 Agent 调用失败：' + error.message +
+        '。已经根据你的学情、目标和时间约束生成保底路径，不会丢失计划。';
+    }
+    finishPlanProgress(true, '已生成保底路径；下次可再次尝试真实 Agent');
+    showToast('Agent 暂时不可用，已自动生成可执行路径');
   } finally {
     if (generatePlanButton) generatePlanButton.disabled = false;
   }

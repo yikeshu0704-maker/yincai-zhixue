@@ -496,3 +496,14 @@ button { cursor: pointer; }
 .analysis-progress-track i.running{animation:planPulse 1.35s ease-in-out infinite}
 .analysis-progress-track i.failed{background:#d96a6a}
 .profile-diagnosis-state{display:inline-flex;align-items:center;margin-top:8px;padding:5px 9px;border-radius:999px;background:#f2f4ff;color:#5a63d6;font-size:11px;font-weight:700}
+
+.diagnosis-result-card{margin:12px 0 0;display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:18px;align-items:stretch;border:1px solid #dfe3ff;background:linear-gradient(180deg,#fbfbff,#f7f8ff)}
+.diagnosis-result-card[hidden]{display:none}
+.diagnosis-result-main h3{margin:5px 0 7px;font-size:22px}
+.diagnosis-result-main p{margin:0;color:var(--muted);line-height:1.7;font-size:12px}
+.diagnosis-result-priorities{display:flex;flex-wrap:wrap;align-content:center;gap:8px}
+.diagnosis-chip{display:inline-flex;padding:7px 10px;border-radius:999px;background:#eef0ff;color:#4d58ce;font-size:11px;font-weight:700}
+.diagnosis-result-next{padding:14px;border-radius:12px;background:#fff;border:1px solid var(--line)}
+.diagnosis-result-next span{display:block;font-size:10px;color:var(--muted);margin-bottom:6px}
+.diagnosis-result-next b{font-size:12px;line-height:1.6}
+@media(max-width:900px){.diagnosis-result-card{grid-template-columns:1fr}.diagnosis-result-priorities{align-content:flex-start}}

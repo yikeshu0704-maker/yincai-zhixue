@@ -323,6 +323,47 @@ const planGoal = document.getElementById('plan-goal');
 const planDays = document.getElementById('plan-days');
 const planHours = document.getElementById('plan-hours');
 const generatePlanButton = document.getElementById('generate-plan');
+const planProgressBar = document.getElementById('plan-progress-bar');
+const planProgressText = document.getElementById('plan-progress-text');
+
+let planProgressTimer = null;
+
+function startPlanProgress() {
+  clearInterval(planProgressTimer);
+  let value = 8;
+  const messages = [
+    '正在读取你的学情与考试目标…',
+    '正在分析薄弱点与时间预算…',
+    '正在计算阶段任务分配…',
+    '正在生成每天可执行的训练安排…'
+  ];
+  let index = 0;
+
+  if (planProgressBar) {
+    planProgressBar.style.width = value + '%';
+    planProgressBar.classList.add('running');
+  }
+  if (planProgressText) planProgressText.textContent = messages[0];
+
+  planProgressTimer = setInterval(() => {
+    value = Math.min(88, value + 7);
+    index = Math.min(messages.length - 1, index + 1);
+    if (planProgressBar) planProgressBar.style.width = value + '%';
+    if (planProgressText) planProgressText.textContent = messages[index];
+  }, 1400);
+}
+
+function finishPlanProgress(success, message) {
+  clearInterval(planProgressTimer);
+  if (planProgressBar) {
+    planProgressBar.style.width = success ? '100%' : '0%';
+    planProgressBar.classList.toggle('running', false);
+    planProgressBar.classList.toggle('failed', !success);
+  }
+  if (planProgressText) {
+    planProgressText.textContent = message;
+  }
+}
 
 generatePlanButton?.addEventListener('click', async () => {
   if (!profile) {
@@ -330,6 +371,7 @@ generatePlanButton?.addEventListener('click', async () => {
     showToast('先完成首次学情设置');
     return;
   }
+
   const days = Math.max(1, Number(planDays.value || profile.days) || 1);
   const hours = Math.max(0.5, Number(planHours.value || profile.hours) || 0.5);
   const minutes = Math.round(hours * 60);
@@ -338,10 +380,14 @@ generatePlanButton?.addEventListener('click', async () => {
   const budget = document.getElementById('plan-budget');
   const status = document.getElementById('plan-status');
   const result = document.getElementById('plan-agent-result');
+
   if (title) title.textContent = days + ' 天 · ' + (goal.length > 28 ? goal.slice(0, 28) + '…' : goal);
   if (budget) budget.textContent = minutes + ' 分钟';
-  if (status) status.textContent = 'AI 正在重新规划…';
-  if (result) result.textContent = '正在根据当前学情、考试目标和时间预算生成新的学习路径…';
+  if (status) status.textContent = 'AI 正在规划…';
+  if (result) result.textContent = '请稍候。AI 正在综合你的学情、目标与时间限制。';
+  if (generatePlanButton) generatePlanButton.disabled = true;
+
+  startPlanProgress();
 
   try {
     const answer = await callAgent('plan',
@@ -353,13 +399,18 @@ generatePlanButton?.addEventListener('click', async () => {
     const data = parseAgentJson(answer);
     renderPlanResult(data, days, minutes);
     if (status) status.textContent = '真实 Agent 已生成';
+    finishPlanProgress(true, '规划完成：已生成可执行学习阶段');
     showToast('学习路径 Agent 已完成重新规划');
   } catch (error) {
     if (result) result.textContent = error.message;
-    if (status) status.textContent = '暂时无法调用 Agent';
+    if (status) status.textContent = 'Agent 调用失败';
+    finishPlanProgress(false, '生成失败：' + error.message);
     showToast('学习路径生成失败');
+  } finally {
+    if (generatePlanButton) generatePlanButton.disabled = false;
   }
 });
+
 
 function renderPlanResult(data, days, minutes) {
   const title = document.getElementById('plan-result-title');
@@ -749,25 +800,30 @@ const loadStatus = document.getElementById('load-status');
 
 
 async function callAgent(agent, context) {
-  const response = await fetch(AGENT_API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ agent, context })
-  });
+  let response;
+  try {
+    response = await fetch(AGENT_API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ agent, context })
+    });
+  } catch (error) {
+    throw new Error('无法连接学习 Agent 后端（127.0.0.1:8080）。请确认 Spring Boot 已重新启动。');
+  }
 
   let data = null;
   try {
     data = await response.json();
   } catch (error) {
-    throw new Error('Agent 返回了无法解析的内容');
+    throw new Error('Agent 后端返回了无法解析的内容（HTTP ' + response.status + '）。');
   }
 
   if (!response.ok) {
-    throw new Error(data?.result || 'Agent 请求失败（HTTP ' + response.status + '）');
+    throw new Error(data?.result || ('Agent 请求失败（HTTP ' + response.status + '）'));
   }
 
   if (!data?.result) {
-    throw new Error('Agent 返回内容为空');
+    throw new Error('Agent 后端返回内容为空。');
   }
 
   return data.result;

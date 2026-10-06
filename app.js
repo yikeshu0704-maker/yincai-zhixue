@@ -998,6 +998,7 @@ async function requestDynamicSkillQuestion(lastCorrect) {
   }
 
   setSkillGeneration(true, 'AI 正在出题…', '正在读取你的学情、最近表现和已做题记录。');
+  renderSkillQuestion();
   const seen = skillHistory.slice(-10).map(x => x.question).filter(Boolean);
   const target = ['基础题','中等题','综合题','变式题'][skillLevelIndex] || '中等题';
   const prompt =
@@ -1414,7 +1415,10 @@ function renderProfile() {
   if (planDaysInput && profile.days) planDaysInput.value = profile.days;
   if (planHoursInput && profile.hours) planHoursInput.value = profile.hours;
   const skillTopic = document.getElementById('skill-topic-title');
-  if (skillTopic) skillTopic.textContent = profile.subject + ' · 等待 AI 诊断';
+  if (skillTopic) {
+    const topic = profile.diagnosis?.priorities?.[0]?.name || profile.primaryTopic;
+    skillTopic.textContent = topic ? topic + ' · AI 自适应训练' : profile.subject + ' · 等待 AI 诊断';
+  }
 }
 
 function bindOnboarding() {

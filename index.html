@@ -61,8 +61,10 @@
           </div>
         </div>
 
+        <div class="ai-recommendation panel"><div class="ai-icon">AI</div><div><span class="eyebrow">AI 今日建议</span><h3>先复盘 3 道几何错题，再做 2 道变式题。</h3><p>你的几何证明正确率连续偏低，今天优先解决薄弱点，而不是继续堆刷题量。</p></div><button class="text-btn" data-go="mistakes">立即复盘 →</button></div>
+
         <div class="stats-grid">
-          <article class="stat-card"><span>今日任务</span><strong>3 / 5</strong><small>已完成 60%</small></article>
+          <article class="stat-card"><span>今日任务</span><strong id="task-count">1 / 4</strong><small id="task-rate">完成率 25%</small></article>
           <article class="stat-card"><span>连续学习</span><strong>5 天</strong><small>保持得很好</small></article>
           <article class="stat-card"><span>待复盘错题</span><strong>7 道</strong><small>建议今天完成 3 道</small></article>
           <article class="stat-card"><span>本周学习</span><strong>6.4 h</strong><small>目标 8 h</small></article>
@@ -91,9 +93,10 @@
       </section>
 
       <section class="page" id="analysis">
-        <div class="page-intro"><span class="tag">学情分析</span><h3>AI 正在理解你的学习状态</h3><p>系统结合测评、答题记录和错题数据，识别当前薄弱知识点。</p></div>
+        <div class="page-intro"><span class="tag">学情分析</span><h3>AI 正在理解你的学习状态</h3><p>系统结合测评、答题记录和错题数据，识别当前薄弱知识点，并决定下一步学习优先级。</p></div>
         <div class="analysis-grid">
           <article class="panel big-panel"><div class="panel-head"><h3>学科掌握情况</h3><span class="pill">初二数学</span></div>
+            <div class="profile-grid"><div><span>目标</span><b>期中 90+</b></div><div><span>每日可用</span><b>2 小时</b></div><div><span>最佳时段</span><b>19:00–21:00</b></div><div><span>近期状态</span><b>持续提升</b></div></div>
             <div class="subject-score"><b>72%</b><span>综合掌握度</span></div>
             <div class="score-bars">
               <div><span>数与代数</span><i><em style="width:78%"></em></i><b>78%</b></div>
@@ -114,6 +117,7 @@
 
       <section class="page" id="plan">
         <div class="page-intro"><span class="tag">学习路径</span><h3>你的 7 天个性化学习路径</h3><p>根据当前学情、目标和每日可用时间动态安排任务。</p></div>
+        <div class="plan-banner panel"><div><b>考试目标：期中 90+</b><span>剩余 21 天 · 每天约 2 小时</span></div><button class="ghost-btn" data-toast="接入 AI 后将根据实时学情自动重排计划">让 AI 调整计划</button></div>
         <div class="timeline">
           <article class="timeline-item current"><div class="day">Day 1</div><div class="timeline-body"><h3>几何证明基础</h3><p>复习证明格式 → 典型例题 → 3 道基础题</p><span>预计 65 分钟</span></div></article>
           <article class="timeline-item"><div class="day">Day 2</div><div class="timeline-body"><h3>辅助线思路训练</h3><p>认识常见辅助线 → 分步提示 → 4 道变式题</p><span>预计 70 分钟</span></div></article>
@@ -123,7 +127,7 @@
       </section>
 
       <section class="page" id="qa">
-        <div class="page-intro"><span class="tag">AI 答疑</span><h3>不会做，不代表直接给你答案</h3><p>AI 会先判断你卡在哪里，再逐步引导。</p></div>
+        <div class="page-intro"><span class="tag">AI 答疑</span><h3>不会做，不代表直接给你答案</h3><p>AI 会先判断你卡在哪里，再根据你的水平逐步引导。</p></div><div class="quick-prompts"><button data-prompt="我不会做这道题，请先告诉我应该从哪里开始想。">我不会做，给我提示</button><button data-prompt="我已经做出了答案，但不知道为什么错。">帮我分析错误</button><button data-prompt="请根据我最近的错题，告诉我应该先复习什么。">根据错题安排学习</button></div>
         <div class="qa-shell panel">
           <div class="chat-log" id="chat-log">
             <div class="chat assistant"><div class="chat-avatar">AI</div><div><p>你好，林同学。你可以直接发题目，或者告诉我你具体卡在哪一步。</p><small>因材智学 · 学习辅导</small></div></div>
@@ -134,8 +138,8 @@
       </section>
 
       <section class="page" id="mistakes">
-        <div class="page-intro"><span class="tag">错题复盘</span><h3>不是把错题存起来，而是把错误练会</h3><p>系统定位错误知识点，并自动生成同类题与变式题。</p></div>
-        <div class="mistake-grid">
+        <div class="page-intro"><span class="tag">错题复盘</span><h3>不是把错题存起来，而是把错误练会</h3><p>系统定位错误知识点 → 讲清原因 → 生成同类题/变式题 → 再次检测掌握情况。</p></div>
+        <div class="mistake-stats"><div class="panel"><b>7</b><span>待复盘</span></div><div class="panel"><b>12</b><span>本周已复盘</span></div><div class="panel"><b>23%</b><span>错题下降</span></div></div><div class="mistake-grid">
           <article class="mistake-card"><div class="mistake-top"><span class="pill danger">待复盘</span><span>10月6日</span></div><h3>一次函数图像与解析式</h3><p>错误类型：条件提取错误</p><div class="mistake-actions"><button data-toast="已开始复盘">开始复盘</button><button data-toast="已生成3道变式题">生成变式题</button></div></article>
           <article class="mistake-card"><div class="mistake-top"><span class="pill danger">待复盘</span><span>10月5日</span></div><h3>三角形全等判定</h3><p>错误类型：定理选择错误</p><div class="mistake-actions"><button data-toast="已开始复盘">开始复盘</button><button data-toast="已生成3道变式题">生成变式题</button></div></article>
           <article class="mistake-card"><div class="mistake-top"><span class="pill success">已掌握</span><span>10月2日</span></div><h3>勾股定理基础应用</h3><p>连续 3 次训练正确</p><div class="mistake-actions"><button data-toast="已查看复盘记录">查看复盘</button></div></article>

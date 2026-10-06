@@ -1,0 +1,33 @@
+name: Browser Smoke Test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright
+        run: |
+          npm init -y
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Start static server
+        run: python -m http.server 4173 --directory . > /tmp/yincai-http.log 2>&1 &
+
+      - name: Run browser smoke test
+        run: node tests/frontend-smoke.cjs
+
+      - name: Dump server log on failure
+        if: failure()
+        run: cat /tmp/yincai-http.log

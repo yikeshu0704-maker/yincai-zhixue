@@ -316,7 +316,7 @@ document.querySelectorAll('.mistake-item').forEach(item => item.addEventListener
   renderMistake();
 }));
 
-document.getElementById('review-next')?.addEventListener('click', () => {
+document.getElementById('review-next')?.addEventListener('click', async () => {
   if (reviewStep === 5) {
     showToast('复盘完成，已进入再测队列');
     reviewStep = 1;
@@ -324,6 +324,22 @@ document.getElementById('review-next')?.addEventListener('click', () => {
     reviewStep += 1;
   }
   renderMistake();
+
+  const data = mistakeData[currentMistake];
+  try {
+    const answer = await callAgent('mistake',
+      '错题标题：' + data.title + '\n' +
+      '原错题：' + data.question + '\n' +
+      '错误原因线索：' + data.reason + '\n' +
+      '知识点：' + data.knowledge + '\n' +
+      '错误类型：' + data.error + '\n' +
+      '学生当前进入复盘第 ' + reviewStep + '/5 步。\n' +
+      '请只输出本阶段最重要的诊断/训练建议，帮助学生继续复盘。'
+    );
+    document.getElementById('review-stage-text').textContent = answer;
+  } catch (error) {
+    showToast('AI复盘暂时不可用，继续使用本地复盘流程');
+  }
 });
 
 renderMistake();
@@ -595,9 +611,14 @@ async function requestMotivationAgent() {
 }
 
 document.getElementById('finish-one-task')?.addEventListener('click', async () => {
+  if (motivationComplete) {
+    motivationComplete.textContent = '100%';
+    motivationBar.style.width = '100%';
+  }
   try {
     await requestMotivationAgent();
-    showToast('学习激励 Agent 已重新评估负担');
+    motivationStatus.classList.add('done');
+    showToast('学习激励 Agent 已重新评估：今天可以收尾或维持');
   } catch (error) {
     showToast('学习负荷分析失败');
   }

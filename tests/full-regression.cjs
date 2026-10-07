@@ -155,6 +155,7 @@ async function runColdJourney(browser, round) {
   await page.locator('#skill-next').click();
   await page.locator('#skill-options button').first().waitFor({ state:'visible', timeout:1000 });
   const q1 = await page.locator('#skill-question-text').textContent();
+  if (/\$\$|\\text(?:less|greater)|\\ne/.test(q1)) throw new Error('训练题仍暴露原始数学标记');
   const visibleSkillText = (q1 + ' ' + await page.locator('#skill-options').textContent()).trim();
   if (/\$\$|\\text(?:less|greater)\s*\{|\\text(?:less|greater)/.test(visibleSkillText)) {
     throw new Error('训练题仍显示原始LaTeX标记：' + visibleSkillText.slice(0, 300));
@@ -187,6 +188,10 @@ async function runColdJourney(browser, round) {
   await page.locator('#chat-input').fill('帮我判断卡点');
   await page.locator('#chat-form').dispatchEvent('submit');
   await page.getByText('好的，我先判断你的卡点，再一步一步引导。').waitFor({ state:'visible', timeout:1500 });
+  if ((await page.locator('#tutor-question-text').textContent()).includes('AB = AC')) throw new Error('答疑区残留固定几何示例');
+  if ((await page.locator('#chat-log').textContent()).includes('**')) throw new Error('AI答疑仍显示原始Markdown星号');
+  await assertPage(page,'report');
+  if (!(await page.locator('#report-summary-text').textContent()).includes('真实训练')) throw new Error('学习报告仍是预置总结');
 
   // Persistence: 10 reloads, with navigation checks each time.
   for (let reload = 1; reload <= 10; reload++) {

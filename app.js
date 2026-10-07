@@ -272,8 +272,13 @@ chatForm.addEventListener('submit', async (event) => {
     });
     if (!response.ok) throw new Error('HTTP ' + response.status);
     const data = await response.json();
-    pending.querySelector('p').textContent = data.answer || '（后端返回内容为空，请稍后再试）';
+    const answer = data.answer || '（后端返回内容为空，请稍后再试）';
+    pending.querySelector('p').classList.add('ai-rich-text');
+    pending.querySelector('p').innerHTML = renderAiMarkdown(answer);
     pending.querySelector('small').textContent = sentImage ? '来自 DeepSeek 多模态答疑' : '来自 DeepSeek 答疑';
+    qaTurnCount += 1;
+    renderTutorStage(answer, text || '请帮我看这道题。');
+    renderReport();
   } catch (error) {
     const reason = error.name === 'AbortError'
       ? 'AI 请求超过 25 秒仍未完成，请重新发送一次。'
@@ -290,6 +295,44 @@ chatForm.addEventListener('submit', async (event) => {
 function escapeHtml(value) {
   const text = value == null ? '' : String(value);
   return text.replace(/[&<>'"]/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
+}
+
+function renderAiMarkdown(value) {
+  const escaped = escapeHtml(String(value == null ? '' : value)).replace(/\r\n?/g, '\n');
+  const lines = escaped.split('\n');
+  const out = [];
+  let inList = false;
+  const closeList = () => {
+    if (inList) {
+      out.push('</ul>');
+      inList = false;
+    }
+  };
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      closeList();
+      out.push('<div class="ai-md-gap"></div>');
+      continue;
+    }
+    const bullet = trimmed.match(/^[-*]\s+(.+)$/);
+    const numbered = trimmed.match(/^\d+[.)]\s+(.+)$/);
+    let content = trimmed.replace(/^#{1,3}\s+/, '');
+    content = content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+    if (bullet || numbered) {
+      if (!inList) {
+        out.push('<ul class="ai-md-list">');
+        inList = true;
+      }
+      content = content.replace(/^[-*]\s+/, '').replace(/^\d+[.)]\s+/, '');
+      out.push('<li>' + content + '</li>');
+    } else {
+      closeList();
+      out.push('<div class="ai-md-line">' + content + '</div>');
+    }
+  }
+  closeList();
+  return out.join('');
 }
 
 function formatQuestionText(value) {
@@ -331,313 +374,77 @@ function formatQuestionText(value) {
 
 
 const tutorStages = [
-  {title:'第 1 步 · 判断你卡在哪里',badge:'定位卡点',response:'先不要看答案。告诉我：你看到“AB = AC”和“AD 是角平分线”后，能想到哪些相等的边或角？',hint:'提示：题目已经给了一个“边相等”和一个“角相等”的条件。',button:'我还是不会 → 下一步'},
-  {title:'第 2 步 · 给一个小提示',badge:'轻提示',response:'你已经有两个非常重要的条件：AB = AC，以及 ∠BAD = ∠CAD。下一步想想：还缺哪个条件，才能比较两个三角形？',hint:'提示：两个三角形都会用到 AD。',button:'还是不会 → 继续引导'},
-  {title:'第 3 步 · 引导你组织思路',badge:'分步引导',response:'我们比较 △ABD 和 △ACD。现在已经有 AB = AC、∠BAD = ∠CAD，而且 AD 是两边共有的。你能想到对应的全等判定吗？',hint:'提示：两边和它们的夹角分别相等。',button:'我仍然不会 → 看讲解'},
-  {title:'第 4 步 · 解释为什么这样做',badge:'重点讲解',response:'因为目标是证明 BD = CD，所以可以尝试把 BD、CD 放进两个三角形中比较。△ABD 与 △ACD 有 AB = AC、AD = AD、∠BAD = ∠CAD，因此两三角形全等。全等后，对应边 BD 与 CD 就相等。',hint:'关键不是“背结论”，而是从目标反推：要证明 BD = CD，就找包含 BD、CD 的两个可比较三角形。',button:'还是不清楚 → 查看完整解法'},
-  {title:'第 5 步 · 完整解法',badge:'完整解法',response:'证明：在 △ABD 和 △ACD 中，AB = AC（已知），AD = AD（公共边），∠BAD = ∠CAD（AD 为 ∠A 的角平分线）。所以 △ABD ≌ △ACD（SAS）。因此 BD = CD（全等三角形的对应边相等）。',hint:'学会了吗？下一道题可以尝试自己先找“目标对应的两个三角形”。',button:'重新练一题'}
+  {title:'等待真实题目',badge:'等待输入',response:'先把你真正不会的数学题发给我，可以直接输入文字，也可以上传题目图片。',hint:'没有真实题目时，不展示任何预置示例题。',button:'先发题目'},
+  {title:'第 1 步 · 定位卡点',badge:'定位卡点',response:'我会先判断你卡在概念、条件、计算还是思路，而不是直接把答案丢给你。',hint:'你可以告诉我“我不会哪一步”，也可以只说“我不会”。',button:'继续第 2 步'},
+  {title:'第 2 步 · 给提示',badge:'轻提示',response:'结合你刚才的回答，我会先给一个尽量小的提示，让你自己继续往下做。',hint:'提示强度会根据你的反馈逐步增加。',button:'继续第 3 步'},
+  {title:'第 3 步 · 引导思路',badge:'分步引导',response:'如果你仍然卡住，我会把问题拆成更小的步骤，一步一步带你找出方法。',hint:'每一步只解决当前最关键的一个卡点。',button:'继续第 4 步'},
+  {title:'第 4 步 · 讲解',badge:'重点讲解',response:'仍然不会时，我会结合你的题目和错误原因解释为什么这么做。',hint:'只有在需要时才进入更完整的讲解。',button:'继续第 5 步'},
+  {title:'第 5 步 · 完整解法',badge:'完整解法',response:'最后才开放完整解法，并指出这道题对应的知识点和可迁移的方法。',hint:'学会之后再做一道不同形式的新题。',button:'重新发送一道题'}
 ];
 let tutorStage = 0;
-function renderTutorStage() {
-  const s = tutorStages[tutorStage];
+let qaTurnCount = 0;
+
+function renderTutorStage(answerText, questionText) {
+  const stageIndex = qaTurnCount > 0 ? Math.min(5, qaTurnCount) : 0;
+  tutorStage = stageIndex;
+  const s = tutorStages[stageIndex];
   const title = document.getElementById('tutor-stage-title');
   const badge = document.getElementById('tutor-stage-badge');
   const responseTitle = document.getElementById('tutor-response-title');
   const message = document.getElementById('tutor-message');
   const next = document.getElementById('tutor-next');
-  if (!title) return;
+  const question = document.getElementById('tutor-question-text');
+  const pill = document.querySelector('.question-panel .panel-head .pill');
+  if (!title || !message) return;
   title.textContent = s.title;
   badge.textContent = s.badge;
   responseTitle.textContent = s.badge;
-  message.querySelector('p').textContent = s.response;
-  message.querySelector('small').textContent = s.hint;
-  next.textContent = s.button;
+  if (question) question.textContent = questionText || '还没有真实题目，请先发送问题。';
+  if (pill) pill.textContent = questionText ? '来自本次真实对话' : '等待输入';
+  if (answerText) {
+    message.innerHTML =
+      '<div class="chat-avatar">AI</div><div><p class="ai-rich-text">' +
+      renderAiMarkdown(answerText.slice(0, 240)) +
+      '</p><small>第 ' + Math.max(1, stageIndex) + ' 步 · 根据本次真实对话更新</small></div>';
+  } else {
+    message.innerHTML =
+      '<div class="chat-avatar">AI</div><div><p>' + escapeHtml(s.response) +
+      '</p><small>' + escapeHtml(s.hint) + '</small></div>';
+  }
+  next.textContent = qaTurnCount ? s.button : '先发题目';
   document.querySelectorAll('.stage-node').forEach(node => {
     const n = Number(node.dataset.stage);
-    node.classList.toggle('active', n <= tutorStage + 1);
-    node.classList.toggle('current', n === tutorStage + 1);
+    node.classList.toggle('active', qaTurnCount > 0 && n <= stageIndex);
+    node.classList.toggle('current', qaTurnCount > 0 && n === stageIndex);
   });
 }
-document.getElementById('tutor-next')?.addEventListener('click', () => {
-  tutorStage = (tutorStage + 1) % tutorStages.length;
-  renderTutorStage();
-});
 
-const analysisAgentButton = document.getElementById('run-analysis-agent');
-
-function parseAgentJson(raw) {
-  if (raw && typeof raw === 'object') return raw;
-  if (typeof raw !== 'string') {
-    throw new Error('Agent 返回内容不是可解析的 JSON。');
-  }
-
-  const variants = [];
-  const original = raw.trim();
-  variants.push(original);
-  variants.push(original.replace(/^\u0060\u0060\u0060json\s*/i, '').replace(/\s*\u0060\u0060\u0060$/i, '').trim());
-
-  try {
-    const quoted = JSON.parse(original);
-    if (typeof quoted === 'string') variants.push(quoted.trim());
-  } catch (_) {}
-
-  for (const candidate of variants) {
-    try {
-      const parsed = JSON.parse(candidate);
-      if (parsed && typeof parsed === 'object') return parsed;
-    } catch (_) {}
-
-    const start = candidate.indexOf('{');
-    if (start < 0) continue;
-
-    let depth = 0;
-    let inString = false;
-    let escaped = false;
-
-    for (let i = start; i < candidate.length; i++) {
-      const char = candidate[i];
-
-      if (inString) {
-        if (escaped) escaped = false;
-        else if (char === '\\') escaped = true;
-        else if (char === '"') inString = false;
-        continue;
-      }
-
-      if (char === '"') inString = true;
-      else if (char === '{') depth++;
-      else if (char === '}') {
-        depth--;
-        if (depth === 0) {
-          const fragment = candidate.slice(start, i + 1);
-          try {
-            const parsed = JSON.parse(fragment);
-            if (parsed && typeof parsed === 'object') return parsed;
-          } catch (_) {}
-          break;
-        }
-      }
-    }
-  }
-
-  throw new Error('Agent 返回的结构化结果无法解析。请重试；如果连续失败，检查后端是否已重启。');
+function sendQuickTutorPrompt(prompt) {
+  if (!chatInput) return;
+  chatInput.value = prompt;
+  showPage('qa');
+  chatInput.focus();
 }
-
-
-function renderDiagnosisResult(data) {
-  profile.diagnosis = data;
-  profile.primaryTopic = data.priorities?.[0]?.name || '';
-  profile.diagnosedAt = new Date().toISOString();
-  saveProfile(profile);
-
-  const diagnosisCard = document.getElementById('diagnosis-result-card');
-  if (diagnosisCard) diagnosisCard.hidden = !profile.diagnosis;
-  const diagnosisState = document.getElementById('profile-diagnosis-state');
-  if (diagnosisState) {
-    diagnosisState.textContent = profile.primaryTopic
-      ? 'AI 已诊断 · 当前重点：' + profile.primaryTopic
-      : 'AI 已完成第一版学习画像';
-  }
-
-  const main = document.getElementById('analysis-main');
-  const summary = document.getElementById('analysis-agent-result');
-  if (main) main.textContent = (data.priorities || []).slice(0, 2).map(item => item.name).filter(Boolean).join(' + ') || '待诊断';
-  if (summary) summary.innerHTML = '<b>总体判断：</b> ' + escapeHtml(data.summary || '暂无') + '<br><b>下一步：</b> ' + escapeHtml(data.recommendedAction || '暂无');
-
-  const reasons = [
-    document.getElementById('analysis-reason-1'),
-    document.getElementById('analysis-reason-2'),
-    document.getElementById('analysis-reason-3')
-  ];
-  (data.priorities || []).slice(0, 3).forEach((item, index) => {
-    if (!reasons[index]) return;
-    const mastery = typeof item.mastery === 'number' ? '掌握度 ' + item.mastery + '%' : '掌握度待诊断';
-    reasons[index].innerHTML = '<b>' + escapeHtml(item.name || '未命名知识点') + '</b> · ' +
-      escapeHtml(item.priority || '待诊断') + ' · ' + mastery + '<br>' + escapeHtml(item.evidence || '暂无依据');
-  });
-
-  const map = document.getElementById('mastery-list');
-  if (map) {
-    const list = data.priorities || [];
-    map.innerHTML = list.length ? list.map(item => {
-      const mastery = typeof item.mastery === 'number' ? item.mastery : null;
-      const priorityClass = item.priority === '高' ? 'priority-high' : item.priority === '中' ? 'priority-mid' : '';
-      const pendingClass = mastery === null ? ' pending' : '';
-      return '<div class="mastery-row ' + priorityClass + pendingClass + '">' +
-        '<div class="mastery-name"><b>' + escapeHtml(item.name || '知识点') + '</b><span>' + escapeHtml(item.priority || '待诊断') + '</span></div>' +
-        '<div class="mastery-bar"><i style="width:' + (mastery === null ? 0 : mastery) + '%"></i></div>' +
-        '<strong>' + (mastery === null ? '待测' : mastery + '%') + '</strong>' +
-      '</div>';
-    }).join('') : '<div class="empty-state"><b>AI 暂时无法形成知识点地图</b><p>请先补充更多测试结果或答题记录。</p></div>';
-  }
-
-  const resultCard = document.getElementById('diagnosis-result-card');
-  const resultTitle = document.getElementById('diagnosis-result-title');
-  const resultSummary = document.getElementById('diagnosis-result-summary');
-  const resultPriorities = document.getElementById('diagnosis-result-priorities');
-  const resultNext = document.getElementById('diagnosis-result-next');
-
-  if (resultCard) resultCard.hidden = false;
-  if (resultTitle) {
-    resultTitle.textContent = (data.priorities || []).slice(0, 2).map(item => item.name).filter(Boolean).join(' + ') || '已建立第一版学习画像';
-  }
-  if (resultSummary) resultSummary.textContent = data.summary || 'AI 已完成第一版学习判断。';
-  if (resultNext) resultNext.textContent = data.recommendedAction || '进入学习路径规划。';
-  if (resultPriorities) {
-    resultPriorities.innerHTML = (data.priorities || []).slice(0, 4).map(item =>
-      '<span class="diagnosis-chip">' +
-      escapeHtml(item.name || '知识点') + ' · ' +
-      escapeHtml(item.priority || '待诊断') +
-      '</span>'
-    ).join('');
-  }
-
-  const skillTitle = document.getElementById('skill-topic-title');
-  if (skillTitle && data.priorities?.[0]?.name) skillTitle.textContent = data.priorities[0].name + ' · AI训练';
-  showToast('学情诊断已更新');
-}
-
-let analysisProgressTimer = null;
-
-function startAnalysisProgress() {
-  clearInterval(analysisProgressTimer);
-  let value = 8;
-  let step = 0;
-  const messages = [
-    '正在读取你的学情信息…',
-    '正在判断哪些信息足够形成证据…',
-    '正在排列当前干预优先级…',
-    '正在形成你的第一份学习画像…'
-  ];
-  const bar = document.getElementById('analysis-progress-bar');
-  const text = document.getElementById('analysis-progress-text');
-  if (bar) {
-    bar.style.width = value + '%';
-    bar.classList.add('running');
-    bar.classList.remove('failed');
-  }
-  if (text) text.textContent = messages[0];
-
-  analysisProgressTimer = setInterval(() => {
-    value = Math.min(88, value + 8);
-    step = Math.min(messages.length - 1, step + 1);
-    if (bar) bar.style.width = value + '%';
-    if (text) text.textContent = messages[step];
-  }, 1500);
-}
-
-function finishAnalysisProgress(success, message) {
-  clearInterval(analysisProgressTimer);
-  const bar = document.getElementById('analysis-progress-bar');
-  const text = document.getElementById('analysis-progress-text');
-  if (bar) {
-    bar.style.width = success ? '100%' : '0%';
-    bar.classList.remove('running');
-    bar.classList.toggle('failed', !success);
-  }
-  if (text) text.textContent = message;
-}
-
-function buildFallbackDiagnosis() {
-  const text = String(profile?.state || '');
-  const priorities = [];
-
-  if (/函数|一次函数|函数综合|反比例/.test(text)) {
-    priorities.push({
-      name: '函数综合应用',
-      priority: /综合|经常|错误|不会/.test(text) ? '高' : '中',
-      mastery: null,
-      evidence: '来自学生自述中的函数相关困难；当前缺少足够测试数据，不虚构掌握度。'
-    });
-  }
-
-  if (/几何|证明|三角形|辅助线/.test(text)) {
-    priorities.push({
-      name: '几何证明',
-      priority: /证明|不知道|不会|经常/.test(text) ? '高' : '中',
-      mastery: null,
-      evidence: '来自学生自述中的几何/证明困难；当前缺少足够测试数据，不虚构掌握度。'
-    });
-  }
-
-  if (!priorities.length) {
-    priorities.push({
-      name: profile?.subject || '当前学科',
-      priority: '待诊断',
-      mastery: null,
-      evidence: '首次使用数据不足，先通过技能训练收集真实表现。'
-    });
-  }
-
-  return {
-    summary: '当前先依据你主动填写的学习情况建立第一版学习画像；正式掌握度会随着测试和训练数据逐步修正。',
-    priorities,
-    recommendedAction: '先完成技能训练，收集真实答题表现，再动态更新知识点掌握度。'
-  };
-}
-
-async function runAnalysisAgent() {
-  if (!profile) {
-    openOnboarding();
-    showToast('先完成首次学情设置');
-    return;
-  }
-
-  // 先用当前真实填写建立稳定的第一版画像，绝不让 AI 请求阻塞学生。
-  const firstPass = buildFallbackDiagnosis();
-  renderDiagnosisResult(firstPass);
-  renderProfile();
-  finishAnalysisProgress(true, '第一版学习画像已建立 · 后续由训练数据校正');
-
-  if (analysisAgentButton) {
-    analysisAgentButton.disabled = true;
-    analysisAgentButton.textContent = 'AI增强分析中…';
-  }
-
-  try {
-    const answer = await callAgent(
-      'analysis',
-      profileContext() + '\n请在不改变学生事实的前提下，增强这份第一版画像；仅补充有依据的优先级和证据。',
-      25000
-    );
-    const data = parseAgentJson(answer);
-    if (!data?.priorities?.length) {
-      throw new Error('AI 返回结构缺少 priorities 字段，未覆盖第一版画像。');
-    }
-    renderDiagnosisResult(data);
-    renderProfile();
-    finishAnalysisProgress(true, 'AI 已增强学习画像 · 后续训练继续校正');
-    showToast('AI已完成学习画像增强');
-  } catch (error) {
-    const resultNode = document.getElementById('analysis-agent-result');
-    if (resultNode) {
-      resultNode.innerHTML =
-        '<b>第一版学习画像正常可用</b>' +
-        '<br><span>AI增强本次未完成，核心学习流程不受影响。</span>' +
-        '<details class="agent-error-detail"><summary>查看 AI 请求状态</summary><p>' +
-        escapeHtml(error.message) + '</p></details>';
-    }
-  } finally {
-    if (analysisAgentButton) {
-      analysisAgentButton.disabled = false;
-      analysisAgentButton.textContent = 'AI重新诊断';
-    }
-  }
-}
-
-analysisAgentButton?.addEventListener('click', runAnalysisAgent);
 
 document.getElementById('tutor-hint')?.addEventListener('click', () => {
-  const s = tutorStages[tutorStage];
-  const small = document.querySelector('#tutor-message small');
-  if (small) small.textContent = s.hint;
-  showToast('已追加一个更具体的提示');
+  if (!qaTurnCount) {
+    showToast('先发送真实题目，再进行分步引导');
+    return;
+  }
+  sendQuickTutorPrompt('给我当前这一步的最小提示，不要直接告诉我答案。');
+});
+document.getElementById('tutor-next')?.addEventListener('click', () => {
+  if (!qaTurnCount) {
+    showToast('先发送真实题目');
+    chatInput?.focus();
+    return;
+  }
+  sendQuickTutorPrompt(tutorStage >= 5 ? '再给我一道不同形式的同类题，让我自己做。' : '我还是不会，请继续按下一步引导我，不要直接给完整答案。');
 });
 document.querySelectorAll('[data-stuck]').forEach(button => button.addEventListener('click', () => {
-  const message = document.querySelector('#tutor-message p');
-  if (message) message.textContent = '收到，你现在的问题是：“' + button.dataset.stuck + '”。我会从这个卡点开始，而不是直接给完整答案。';
-  showToast('已记录你的卡点');
+  sendQuickTutorPrompt('我现在卡在：' + button.dataset.stuck + '。请从这个卡点开始一步一步引导我。');
 }));
+
 document.querySelectorAll('[data-prompt]').forEach(button => button.addEventListener('click', () => {
   chatInput.value = button.dataset.prompt;
   showPage('qa');
@@ -895,7 +702,7 @@ function renderMistake() {
 
   title.textContent = data.title || '错题';
   type.textContent = data.errorType || data.error || data.type || '待分析';
-  question.textContent = data.question || '';
+  question.textContent = formatQuestionText(data.question || '');
   if (pill) pill.textContent = reviewStep >= 5 ? '准备再测' : '尚未通过';
 
   document.querySelectorAll('.mistake-item').forEach(item => {
@@ -909,7 +716,7 @@ function renderMistake() {
   });
 
   const stages = [
-    ['先找出你为什么错', '<b>错误原因</b>：' + escapeHtml(data.reason || '等待 AI 分析') + '<br><b>证据</b>：' + escapeHtml(data.evidence || '等待 AI 分析')],
+    ['先找出你为什么错', '<b>错误原因</b>：' + escapeHtml(data.reason || '等待 AI 分析') + '<br><b>证据</b>：' + escapeHtml(formatQuestionText(data.evidence || '等待 AI 分析'))],
     ['定位真正薄弱的知识点', '<b>核心知识点</b>：' + escapeHtml(data.knowledge || '等待 AI 定位') + '<br><span>后续训练会围绕这个知识点生成，不再泛泛刷题。</span>'],
     ['给这次错误贴上“可追踪”的标签', '<b>错误类型</b>：' + escapeHtml(data.errorType || data.error || '待判断')],
     ['从简单到综合重新练一遍', '<b>基础同类题</b>：' + escapeHtml(data.basic || 'AI 将生成') + '<br><b>变式题</b>：' + escapeHtml(data.variant || 'AI 将生成') + '<br><b>综合题</b>：' + escapeHtml(data.comprehensive || 'AI 将生成')],
@@ -1183,6 +990,8 @@ function updateSkillMastery(correct) {
     if (skillLevelIndex > 0) skillLevelIndex -= 1;
   }
   saveSkillState();
+  renderReport();
+  renderDashboardTasks();
 }
 
 function renderSkillHistory() {
@@ -1783,16 +1592,165 @@ aiReviewStart?.addEventListener('click', async () => {
 
 
 
+const STUDY_TIME_KEY = 'yincaiStudySeconds';
+
+function getStudySeconds() {
+  return Number(localStorage.getItem(STUDY_TIME_KEY) || 0);
+}
+
+let studySessionStartedAt = Date.now();
+
+function flushStudyTime() {
+  if (!profile) {
+    studySessionStartedAt = Date.now();
+    return;
+  }
+  const now = Date.now();
+  const delta = Math.max(0, Math.min(120, Math.floor((now - studySessionStartedAt) / 1000)));
+  if (delta > 0) localStorage.setItem(STUDY_TIME_KEY, String(getStudySeconds() + delta));
+  studySessionStartedAt = now;
+  renderReport();
+}
+
+setInterval(() => {
+  if (profile && document.visibilityState === 'visible') flushStudyTime();
+}, 30000);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') flushStudyTime();
+  else studySessionStartedAt = Date.now();
+});
+window.addEventListener('beforeunload', flushStudyTime);
+
+function calculateLearningStreak() {
+  const dates = new Set(skillHistory.map(item => (item.createdAt || '').slice(0, 10)).filter(Boolean));
+  let streak = 0;
+  let day = new Date();
+  while (dates.has(day.toISOString().slice(0, 10))) {
+    streak += 1;
+    day = new Date(day.getTime() - 86400000);
+  }
+  return streak;
+}
+
+function renderDashboardTasks() {
+  const empty = document.getElementById('dashboard-task-empty');
+  const generated = document.getElementById('dashboard-task-generated');
+  if (!empty || !generated) return;
+  if (!profile) {
+    empty.hidden = false;
+    generated.innerHTML = '';
+    return;
+  }
+
+  const topic = profile.diagnosis?.priorities?.[0]?.name || profile.primaryTopic || profile.subject || '当前重点知识点';
+  const todayKey = new Date().toISOString().slice(0, 10);
+  let state;
+  try { state = JSON.parse(localStorage.getItem(TASK_KEY) || 'null'); } catch (_) { state = null; }
+
+  if (!state || state.date !== todayKey || !Array.isArray(state.items)) {
+    state = {
+      date: todayKey,
+      items: [
+        { id:'diagnosis', title:'完成一次学情诊断', note:'让 Agent 根据当前资料确定今天重点', done:!!profile.diagnosis, go:'analysis' },
+        { id:'training', title:topic + ' · 自适应训练 5 题', note:'从基础到当前适合难度连续训练', done:todayCompletedTasks() >= 5, go:'skills' },
+        { id:'review', title:'复盘今天的错题', note:'完成至少 1 道错题复盘即可', done:false, go:'mistakes' }
+      ]
+    };
+  } else {
+    state.items[0].done = !!profile.diagnosis;
+    state.items[1].done = todayCompletedTasks() >= 5;
+  }
+  localStorage.setItem(TASK_KEY, JSON.stringify(state));
+
+  const doneCount = state.items.filter(item => item.done).length;
+  const rate = Math.round(doneCount / state.items.length * 100);
+  empty.hidden = true;
+  generated.innerHTML = state.items.map(item =>
+    '<div class="task-row ' + (item.done ? 'done' : '') + '">' +
+      '<button type="button" class="task-check" aria-label="' + escapeHtml(item.title) + '" data-task-toggle="' + item.id + '">' + (item.done ? '✓' : '') + '</button>' +
+      '<div class="task-row-main"><b>' + escapeHtml(item.title) + '</b><small>' + escapeHtml(item.note) + '</small></div>' +
+      '<button type="button" class="task-go" data-go="' + escapeHtml(item.go) + '">' + (item.done ? '回看' : '去做') + '</button>' +
+    '</div>'
+  ).join('');
+
+  generated.querySelectorAll('[data-task-toggle]').forEach(button => button.addEventListener('click', () => {
+    const current = state.items.find(item => item.id === button.dataset.taskToggle);
+    if (!current) return;
+    if (current.id !== 'review') {
+      showPage(current.go);
+      return;
+    }
+    current.done = !current.done;
+    localStorage.setItem(TASK_KEY, JSON.stringify(state));
+    renderDashboardTasks();
+    refreshFirstUseStats();
+  });
+}
+
+function renderReport() {
+  const seconds = getStudySeconds();
+  const weekItems = skillHistory.filter(item => {
+    const time = Date.parse(item.createdAt || '');
+    return Number.isFinite(time) && (Date.now() - time <= 7 * 86400000);
+  });
+  const recentMistakes = Object.values(mistakeData).filter(item => {
+    const time = Date.parse(item.createdAt || '');
+    return Number.isFinite(time) && (Date.now() - time <= 7 * 86400000);
+  }).length;
+
+  const hours = seconds / 3600;
+  const study = document.getElementById('report-study-hours');
+  const completed = document.getElementById('report-completed');
+  const mistakeChange = document.getElementById('report-mistakes-change');
+  const masteryChange = document.getElementById('report-mastery-change');
+
+  if (study) study.textContent = hours < 0.05 ? (hours * 60).toFixed(1) + ' min' : hours.toFixed(1) + ' h';
+  if (completed) completed.textContent = String(weekItems.length);
+  if (mistakeChange) mistakeChange.textContent = recentMistakes ? '新增 ' + recentMistakes + ' 道' : '--';
+
+  if (masteryChange) {
+    const initial = Number(profile?.initialSkillMastery);
+    const current = Number(profile?.skillMastery);
+    masteryChange.textContent = skillAttempts >= 2 && Number.isFinite(initial)
+      ? ((current - initial >= 0 ? '+' : '') + (current - initial).toFixed(1) + ' pt')
+      : '--';
+  }
+
+  const summary = document.getElementById('report-summary-text');
+  const pill = document.getElementById('report-summary-pill');
+  if (!summary) return;
+
+  if (!profile) {
+    summary.textContent = '完成学情设置后，这里会根据真实训练、错题和学习时长生成周报。';
+    if (pill) pill.textContent = '等待学习';
+    return;
+  }
+
+  const topic = profile.diagnosis?.priorities?.[0]?.name || profile.primaryTopic || profile.subject || '当前重点知识点';
+  const accuracy = weekItems.length ? Math.round(weekItems.filter(item => item.correct).length / weekItems.length * 100) : 0;
+  summary.textContent = weekItems.length
+    ? '本周围绕“' + topic + '”完成了 ' + weekItems.length + ' 次训练，正确率约 ' + accuracy + '%。' +
+      (recentMistakes ? ' 当前还有 ' + recentMistakes + ' 道近期错题值得复盘。' : ' 暂时没有新增错题。') +
+      ' 后续训练会根据实际表现继续调整难度。'
+    : '本周还没有完整的训练记录。完成几道真实题目后，这里会显示你的实际学习情况。';
+  if (pill) pill.textContent = weekItems.length ? '基于真实数据' : '等待学习';
+}
+
 function refreshFirstUseStats() {
   const mistakesCount = Object.keys(mistakeData).length;
   const mistakeNode = document.getElementById('mistake-count');
   if (mistakeNode) mistakeNode.textContent = mistakesCount + ' 道';
+
   const scoreNode = document.getElementById('motivation-mastery');
   if (scoreNode) scoreNode.textContent = profile?.skillMastery ? profile.skillMastery + '%' : '--';
-  const streak = Number(localStorage.getItem(STREAK_KEY) || 0);
-  const streakNode = document.getElementById('motivation-streak');
+
+  const streak = calculateLearningStreak();
+  localStorage.setItem(STREAK_KEY, String(streak));
+  const streakNode = document.getElementById('streak-count');
   if (streakNode) streakNode.textContent = streak + ' 天';
-  // 完成度来自真实答题记录，不再写死
+  const motivationStreakNode = document.getElementById('motivation-streak');
+  if (motivationStreakNode) motivationStreakNode.textContent = streak + ' 天';
+
   const pct = todayCompletePercent();
   const completeNode = document.getElementById('motivation-complete');
   if (completeNode) completeNode.textContent = pct + '%';
@@ -1801,8 +1759,10 @@ function refreshFirstUseStats() {
   if (loadBar) loadBar.style.width = mistakesCount ? '30%' : '0%';
   if (loadValue) loadValue.textContent = mistakesCount ? '30%' : '--';
   if (loadStatus) loadStatus.textContent = mistakesCount ? '开始关注' : '等待学习';
-}
-refreshFirstUseStats();
+
+  renderDashboardTasks();
+  renderReport();
+}refreshFirstUseStats();
 
 // 学习激励：完成度来自真实答题数据，不再写死。
 function todayCompletedTasks() {
@@ -2068,6 +2028,7 @@ renderProfile();
 renderMistakeListFromStore();
 renderMistake();
 renderSkillQuestion();
+renderTutorStage();
 
 if (profile) {
   skillMastery = Number(profile.skillMastery || 0);

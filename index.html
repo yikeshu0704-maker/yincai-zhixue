@@ -273,13 +273,13 @@
             <div class="panel-head"><h3>你的题目</h3><span class="pill">等待输入</span></div>
             <div class="question-box">
               <b>题目</b>
-              <p>把你真实不会的题目输入到下方聊天框。Agent 会从你的问题开始判断卡点。</p>
+              <p id="tutor-question-text">还没有真实题目，请先把问题发给 AI。</p>
             </div>
             <div class="panel-head compact-head"><h3>你现在卡在哪里？</h3></div>
             <div class="stuck-options">
-              <button data-stuck="我不知道该用哪个条件">不知道用哪个条件</button>
-              <button data-stuck="我不知道为什么要比较两个三角形">不知道为什么比较两个三角形</button>
-              <button data-stuck="我会证明，但不知道怎么写">知道思路但不会写</button>
+              <button data-stuck="我不知道题目条件怎么用">不知道题目条件怎么用</button>
+              <button data-stuck="我不知道下一步怎么做">不知道下一步怎么做</button>
+              <button data-stuck="我知道答案但不会写过程">知道答案但不会写过程</button>
             </div>
           </section>
 
@@ -288,8 +288,8 @@
             <div class="tutor-message" id="tutor-message">
               <div class="chat-avatar">AI</div>
               <div>
-                <p>先不要看答案。告诉我：你看到“AB = AC”和“AD 是角平分线”后，能想到哪些相等的边或角？</p>
-                <small>AI 会根据你的回答决定下一步提示强度。</small>
+                <p>先发送一道真实题目，我会根据你的问题定位卡点。</p>
+                <small>不会预置任何示例题。</small>
               </div>
             </div>
             <div class="tutor-actions">
@@ -537,14 +537,14 @@
       </section>
 
       <section class="page" id="report">
-        <div class="page-intro"><span class="tag">学习报告</span><h3>本周，你真正学会了什么？</h3><p>把学习过程变成可追踪的成长记录。</p></div>
+        <div class="page-intro"><span class="tag">学习报告</span><h3>本周，你真正学会了什么？</h3><p>只展示你实际产生的学习数据，不再使用预置的“本周表现”。</p></div>
         <div class="report-grid">
-          <article class="panel report-kpi"><span>本周学习时长</span><strong>0 h</strong><small>从首次使用开始累计</small></article>
-          <article class="panel report-kpi"><span>完成任务</span><strong>0</strong><small>等待第一条学习记录</small></article>
-          <article class="panel report-kpi"><span>错题变化</span><strong>--</strong><small>完成练习后开始统计</small></article>
-          <article class="panel report-kpi"><span>知识点提升</span><strong>--</strong><small>完成诊断后开始统计</small></article>
+          <article class="panel report-kpi"><span>本周学习时长</span><strong id="report-study-hours">0 min</strong><small>来自实际打开页面后的有效会话时长</small></article>
+          <article class="panel report-kpi"><span>完成训练</span><strong id="report-completed">0</strong><small>来自最近 7 天真实训练记录</small></article>
+          <article class="panel report-kpi"><span>错题变化</span><strong id="report-mistakes-change">--</strong><small>最近 7 天新增错题</small></article>
+          <article class="panel report-kpi"><span>知识点提升</span><strong id="report-mastery-change">--</strong><small>基于第一次训练后的掌握度变化</small></article>
         </div>
-        <article class="panel report-summary"><div class="panel-head"><h3>AI 本周总结</h3><span class="pill success">持续进步</span></div><p>你在基础知识点上的掌握度提升明显，本周最大的突破是“一次函数”。目前最值得投入时间的是“几何证明”，建议继续保持短时、高频的训练方式，并优先完成 7 天学习路径中的高优先级任务。</p></article>
+        <article class="panel report-summary"><div class="panel-head"><h3>本周总结</h3><span class="pill success" id="report-summary-pill">等待学习</span></div><p id="report-summary-text">完成学情设置后，这里会根据真实训练、错题和学习时长生成周报。</p></article>
       </section>
     </main>
   </div>

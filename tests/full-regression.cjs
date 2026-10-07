@@ -158,7 +158,6 @@ async function runColdJourney(browser, round) {
 
   await page.locator('#skill-options button[data-skill-option="A"]').click();
   await page.locator('#skill-submit').click();
-  await page.locator('#mistake-stat-pending').waitFor({ state:'visible' });
 
   await assertPage(page,'mistakes');
   const mistakeCount = Number(await page.locator('#mistake-stat-pending').textContent());

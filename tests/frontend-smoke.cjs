@@ -164,7 +164,7 @@ function responseFor(agent) {
     await page.locator('#skill-free-answer').fill('__smoke_first__');
   }
   await page.locator('#skill-submit').click();
-  await page.waitForTimeout(100);
+  await page.locator('#skill-next').waitFor({ state: 'visible', timeout: 1500 });
 
   if (!(await page.locator('#skill-question-text').textContent()).includes(firstQuestion)) {
     throw new Error('提交后上一题没有保留，页面自动跳题了');

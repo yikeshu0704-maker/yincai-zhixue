@@ -531,3 +531,7 @@ button { cursor: pointer; }
 @keyframes skillSpin{to{transform:rotate(360deg)}}
 .mastery-row.pending .mastery-bar i{background:#d9dee8}
 .mastery-row.pending>strong{color:var(--muted)}
+
+
+/* Adaptive training: AI prefetch is background-only; never present a blocking spinner. */
+#skill-generation { display: none !important; }

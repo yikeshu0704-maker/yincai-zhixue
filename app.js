@@ -251,6 +251,39 @@ function escapeHtml(value) {
   return text.replace(/[&<>'"]/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
 }
 
+function formatQuestionText(value) {
+  let text = value == null ? '' : String(value);
+  text = text
+    .replace(/\\textless\s*\{\}/g, '<')
+    .replace(/\\textgreater\s*\{\}/g, '>')
+    .replace(/\\leqslant|\\leq/g, '≤')
+    .replace(/\\geqslant|\\geq/g, '≥')
+    .replace(/\\neq/g, '≠')
+    .replace(/\\approx/g, '≈')
+    .replace(/\\times/g, '×')
+    .replace(/\\cdot/g, '·')
+    .replace(/\\pm/g, '±')
+    .replace(/\\mp/g, '∓')
+    .replace(/\\infty/g, '∞')
+    .replace(/\\angle/g, '∠')
+    .replace(/\\triangle/g, '△')
+    .replace(/\\parallel/g, '∥')
+    .replace(/\\perp/g, '⊥')
+    .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
+    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1)/($2)')
+    .replace(/\\text\{([^{}]*)\}/g, '$1')
+    .replace(/\\left|\\right/g, '')
+    .replace(/\$\$/g, '')
+    .replace(/\\\(|\\\)|\\\[|\\\]/g, '')
+    .replace(/\\,/g, ' ')
+    .replace(/\\;/g, ' ')
+    .replace(/\\!/g, '')
+    .replace(/\{([^{}]*)\}/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return text;
+}
+
 
 
 const tutorStages = [
@@ -979,11 +1012,12 @@ function currentSkillTopic() {
 }
 
 function setSkillGeneration(loading, title, text) {
-  skillLoading = loading;
+  // 训练页面不等待 AI，AI 只在后台预取；避免出现“页面卡住正在出题”的视觉假死。
+  skillLoading = false;
   const box = document.getElementById('skill-generation');
   const titleNode = document.getElementById('skill-generation-title');
   const textNode = document.getElementById('skill-generation-text');
-  if (box) box.hidden = !loading;
+  if (box) box.hidden = true;
   if (titleNode && title) titleNode.textContent = title;
   if (textNode && text) textNode.textContent = text;
 }
@@ -1119,7 +1153,7 @@ function renderSkillHistory() {
     const idx = skillHistory.length - 1 - reverseIndex;
     return '<button type="button" class="skill-history-item" data-skill-history-index="'+idx+'">' +
       '<div><span class="pill">'+escapeHtml(item.level || '训练题')+'</span><small>第 '+(idx+1)+' 题</small></div>' +
-      '<b>'+escapeHtml(item.question)+'</b>' +
+      '<b>'+escapeHtml(formatQuestionText(item.question))+'</b>' +
       '<span class="'+(item.correct?'history-correct':'history-wrong')+'">'+
       (item.skipped?'已标记不会':item.correct?'答对':'答错')+'</span>' +
       '</button>';
@@ -1212,7 +1246,7 @@ function renderSkillQuestion() {
 
   document.getElementById('skill-level-title').textContent=difficultyLabel(q.level) || q.label || '训练题';
   document.getElementById('skill-level-pill').textContent=q.label||'AI训练';
-  document.getElementById('skill-question-text').textContent=q.question||'';
+  document.getElementById('skill-question-text').textContent=formatQuestionText(q.question||'');
   document.getElementById('skill-question-no').textContent=String(skillQuestionNo);
   document.getElementById('skill-current-level').textContent=difficultyLabel(q.level) || q.label || '训练题';
   document.getElementById('skill-mastery').textContent=skillAttempts ? skillMastery+'%' : '--';
@@ -1231,7 +1265,7 @@ function renderSkillQuestion() {
       input.addEventListener('input',()=>{ selectedSkillOption=input.value.trim(); });
     }
   } else {
-    options.innerHTML=Object.entries(q.options||{}).map(([k,v])=>'<button type="button" data-skill-option="'+escapeHtml(k)+'"'+(skillAnswered||skillLoading?' disabled':'')+'>'+escapeHtml(k+'. '+v)+'</button>').join('');
+    options.innerHTML=Object.entries(q.options||{}).map(([k,v])=>'<button type="button" data-skill-option="'+escapeHtml(k)+'"'+(skillAnswered||skillLoading?' disabled':'')+'>'+escapeHtml(k+'. '+formatQuestionText(v))+'</button>').join('');
     if(!skillAnswered&&!skillLoading){
       options.querySelectorAll('[data-skill-option]').forEach(btn=>btn.addEventListener('click',()=>{
         selectedSkillOption=btn.dataset.skillOption;

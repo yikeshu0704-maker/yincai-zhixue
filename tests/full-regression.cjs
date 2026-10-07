@@ -111,7 +111,7 @@ async function runColdJourney(browser, round) {
 
   const css = await page.locator('link[rel="stylesheet"]').getAttribute('href');
   const js = await page.locator('script[src*="app.js"]').getAttribute('src');
-  if (!css?.includes('stable-v2') || !js?.includes('stable-v2')) {
+  if (!css?.includes('stable-v3') || !js?.includes('stable-v2')) {
     throw new Error('第' + round + '轮缓存破坏版本号未更新');
   }
 
@@ -155,6 +155,14 @@ async function runColdJourney(browser, round) {
   await page.locator('#skill-next').click();
   await page.locator('#skill-options button').first().waitFor({ state:'visible', timeout:1000 });
   const q1 = await page.locator('#skill-question-text').textContent();
+  const visibleSkillText = (q1 + ' ' + await page.locator('#skill-options').textContent()).trim();
+  if (/\$\$|\\text(?:less|greater)\s*\{|\\text(?:less|greater)/.test(visibleSkillText)) {
+    throw new Error('训练题仍显示原始LaTeX标记：' + visibleSkillText.slice(0, 300));
+  }
+  const generationVisible = await page.locator('#skill-generation').isVisible();
+  if (generationVisible) {
+    throw new Error('训练页仍显示阻塞式“AI正在出题”面板');
+  }
   await page.locator('#skill-options button[data-skill-option="A"]').click();
   await page.locator('#skill-submit').click();
   await page.locator('#skill-next').waitFor({ state:'visible', timeout:1000 });

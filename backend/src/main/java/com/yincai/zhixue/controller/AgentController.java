@@ -63,29 +63,40 @@ public class AgentController {
                     """,
             "mistake", """
                     你是“因材智学”的错题复盘 Agent。
-                    不要输出长篇散文，必须返回结构化 JSON。
-                    请判断：
-                    1. 错误原因
-                    2. 核心知识点
-                    3. 错误类型
-                    4. 原题和学生答案提供的证据
-                    5. 基础同类题训练
-                    6. 真正改变条件、表示或解题入口的变式题训练
-                    7. 综合题训练
-                    8. 掌握检验方法
+                    你的目标是让学生真正把这道题重新学会，而不是只给一个标签。
+                    必须识别错误原因、定位最具体知识点，并给出原题从审题到最终答案的完整可执行解法。
+                    如果学生提供了主动反馈，必须结合反馈重新判断。
                     严禁编造学生没有提供的事实。
-                    严格只返回一个合法 JSON 对象：
+                    严格只返回一个合法 JSON：
                     {
                       "reason":"一句话错误根因",
-                      "knowledge":"核心知识点",
+                      "knowledge":"最具体核心知识点",
                       "errorType":"概念理解/条件提取/计算执行/思路组织/审题/其他",
-                      "evidence":"来自原题和学生答案的依据",
-                      "basic":"基础同类题应该练什么",
-                      "variant":"真正改变条件、表示或解题入口的变式训练",
-                      "comprehensive":"综合训练应该练什么",
-                      "masteryCheck":"怎样检验真正掌握"
+                      "evidence":"来自原题、学生答案和学生反馈的依据",
+                      "feedbackSummary":"如何理解学生反馈，并据此修正判断",
+                      "fullSolution":"这道原题完整解法：审题→条件→方法→逐步推导或证明→最终答案",
+                      "whyThisWorks":"为什么这些关键步骤成立",
+                      "basic":"基础同类题训练建议",
+                      "variant":"真正改变条件、表示或解题入口的变式训练建议",
+                      "comprehensive":"综合训练建议",
+                      "masteryCheck":"怎样通过真实新题验证掌握"
                     }
                     """,
+            "mistakeImage", """
+                    你是“因材智学”的手写答案批改 Agent。
+                    用户上传的是针对训练题的手写解题过程照片。
+                    你必须将手写过程与原题、标准答案、标准解法逐步对照，指出第一处实质错误。
+                    如果内容模糊，必须明确说明看不清，不能编造。
+                    严格只返回一个合法 JSON：
+                    {
+                      "recognizedWork":"忠实转述图片中能够看清的学生作答",
+                      "isCorrect":true,
+                      "errors":"第一处实质错误；如果没有错误写未发现关键错误",
+                      "correctedSolution":"按原题写出正确步骤",
+                      "knowledgeVerified":true,
+                      "masteryMessage":"说明这一次能否作为掌握证据，以及还需要什么验证"
+                    }
+                    """
             "skill", """
                     你是“因材智学”的自适应技能训练 Agent。
                     根据学生真实表现决定下一题难度，而不是随机出题。
@@ -143,6 +154,20 @@ public class AgentController {
                     .body(new AgentResponse("缺少 Agent 所需的上下文信息。"));
         }
 
+        if ("mistakeImage".equals(request.getAgent())) {
+            if (request.getImageData() == null || request.getImageData().isBlank()) {
+                return ResponseEntity.badRequest().body(new AgentResponse("缺少手写答案图片。"));
+            }
+            if (request.getImageData().length() > 12L * 1024 * 1024) {
+                return ResponseEntity.badRequest().body(new AgentResponse("手写答案图片过大，请控制在 8MB 左右。"));
+            }
+            String mime = request.getImageMimeType() == null ? "" : request.getImageMimeType().trim().toLowerCase();
+            if (!java.util.Set.of("image/jpeg", "image/png", "image/webp").contains(mime)
+                    || !request.getImageData().startsWith("data:" + mime + ";base64,")) {
+                return ResponseEntity.badRequest().body(new AgentResponse("手写答案图片格式无效。"));
+            }
+        }
+
         try {
             String answer;
             switch (request.getAgent()) {
@@ -157,7 +182,15 @@ public class AgentController {
                         java.util.List.of("question", "options", "answer"));
                 case "mistake" -> answer = chatService.chatWithJsonPrompt(
                         systemPrompt, context,
-                        java.util.List.of("reason", "knowledge", "errorType"));
+                        java.util.List.of("reason", "knowledge", "errorType", "fullSolution"));
+                case "mistakeImage" -> {
+                    answer = chatService.chatWithImageJsonPrompt(
+                            systemPrompt,
+                            context,
+                            request.getImageData(),
+                            request.getImageMimeType(),
+                            java.util.List.of("recognizedWork", "isCorrect", "errors", "correctedSolution", "masteryMessage"));
+                }
                 default -> answer = chatService.chatWithPrompt(systemPrompt, context);
             }
 

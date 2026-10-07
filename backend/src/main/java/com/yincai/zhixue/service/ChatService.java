@@ -97,6 +97,76 @@ public class ChatService {
         }
     }
 
+    public String chatWithImageJsonPrompt(
+            String systemPrompt,
+            String userPrompt,
+            String imageData,
+            String imageMimeType,
+            java.util.List<String> requiredFields) {
+
+        validateConfiguration();
+
+        String latestPrompt = userPrompt;
+        for (int attempt = 1; attempt <= 2; attempt++) {
+            try {
+                var body = objectMapper.createObjectNode();
+                body.put("model", model);
+                body.put("temperature", 0.1);
+                body.put("max_tokens", 1000);
+
+                var responseFormat = body.putObject("response_format");
+                responseFormat.put("type", "json_object");
+
+                var messages = body.putArray("messages");
+                var system = messages.addObject();
+                system.put("role", "system");
+                system.put("content", systemPrompt + "\n只输出一个合法 JSON 对象，不要 Markdown。");
+
+                var user = messages.addObject();
+                user.put("role", "user");
+                var content = user.putArray("content");
+
+                var textBlock = content.addObject();
+                textBlock.put("type", "text");
+                textBlock.put("text", latestPrompt);
+
+                var imageBlock = content.addObject();
+                imageBlock.put("type", "image_url");
+                var imageUrl = imageBlock.putObject("image_url");
+                imageUrl.put("url", imageData);
+
+                String answer = sendRequest(body);
+                String normalized = normalizeJson(answer);
+                if (normalized == null) {
+                    latestPrompt = userPrompt + "\n上一次输出不是合法 JSON，请重新严格按 schema 返回。";
+                    continue;
+                }
+
+                JsonNode node = objectMapper.readTree(normalized);
+                java.util.List<String> missing = new java.util.ArrayList<>();
+                for (String field : requiredFields) {
+                    JsonNode value = node.get(field);
+                    if (value == null || value.isNull()
+                            || (value.isTextual() && value.asText().isBlank())) {
+                        missing.add(field);
+                    }
+                }
+                if (missing.isEmpty()) {
+                    return normalized;
+                }
+
+                latestPrompt = userPrompt + "\n上一次 JSON 缺少字段：" + String.join(", ", missing) + "。请补全全部字段。";
+            } catch (Exception ex) {
+                if (attempt == 2) {
+                    throw new RuntimeException("图片结构化 Agent 调用失败：" + safeMessage(new RuntimeException(ex.getMessage(), ex)));
+                }
+            }
+        }
+
+        throw new RuntimeException("图片结构化 Agent 连续两次返回格式不符合 schema。");
+    }
+
+
     public String chatWithJsonPrompt(String systemPrompt, String userPrompt) {
         return chatWithJsonPrompt(systemPrompt, userPrompt, null);
     }

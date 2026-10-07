@@ -4,6 +4,8 @@ public class AgentRequest {
 
     private String agent;
     private String context;
+    private String imageData;
+    private String imageMimeType;
 
     public AgentRequest() {
     }
@@ -22,5 +24,21 @@ public class AgentRequest {
 
     public void setContext(String context) {
         this.context = context;
+    }
+
+    public String getImageData() {
+        return imageData;
+    }
+
+    public void setImageData(String imageData) {
+        this.imageData = imageData;
+    }
+
+    public String getImageMimeType() {
+        return imageMimeType;
+    }
+
+    public void setImageMimeType(String imageMimeType) {
+        this.imageMimeType = imageMimeType;
     }
 }

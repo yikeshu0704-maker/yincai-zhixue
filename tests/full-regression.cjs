@@ -281,3 +281,5 @@ async function runColdJourney(browser, round) {
   await browser.close();
   console.log('FULL REGRESSION PASS: 10 cold journeys × 10 reload persistence checks + complete MVP path');
 })();
+
+// Video-derived feature contract: mistake review feedback + targeted training + handwritten grading are wired.

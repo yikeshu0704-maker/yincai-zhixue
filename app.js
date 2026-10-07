@@ -1782,6 +1782,29 @@ document.getElementById('skill-skip')?.addEventListener('click',()=>{
   if(!q||skillAnswered||skillLoading)return;
   skillRequestId += 1;
 
+  const mistakeId='mistake-'+Date.now();
+  const local=buildLocalMistakeFeedback(q,'');
+  mistakeData[mistakeId]={
+    id:mistakeId,
+    title:(q.label||'训练题')+' · '+currentSkillTopic(),
+    type:'技能训练不会',
+    question:q.question,
+    reason:'你主动标记“不会”，系统将其视为需要复盘的真实学习信号。',
+    knowledge:local.knowledge,
+    error:local.errorType,
+    evidence:'题目：'+q.question+'；学生标记：不会。',
+    basic:local.basic,
+    variant:local.variant,
+    comprehensive:local.comprehensive,
+    masteryCheck:local.masteryCheck,
+    chosen:'',
+    skipped:true,
+    createdAt:new Date().toLocaleString()
+  };
+  saveMistakes();
+  currentMistake=mistakeId;
+  renderMistakeListFromStore();
+
   skillStreak=0;
   if(skillLevelIndex>0)skillLevelIndex-=1;
   skillMastery=Math.max(0,skillMastery-5);
@@ -1798,9 +1821,19 @@ document.getElementById('skill-skip')?.addEventListener('click',()=>{
   const feedback=document.getElementById('skill-feedback');
   if(feedback){
     feedback.className='skill-feedback wrong';
-    feedback.innerHTML='<span>已记录“这题我不会”</span><p>题目不会消失。当前难度已下调，点击“下一题”后会继续给你更适合的训练。</p>';
+    feedback.innerHTML =
+      '<div class="skill-feedback-block local-feedback">' +
+      '<span>已记录“这题我不会”</span>' +
+      '<p>这道题已进入错题复盘中心。当前难度已下调，点击“下一题”后会继续给你更适合的训练。</p>' +
+      '</div>' +
+      '<div class="skill-feedback-block ai-feedback ai-feedback-pending">' +
+      '<span>AI 错因补充分析</span>' +
+      '<p>正在结合你的题目与学习记录补充诊断…</p>' +
+      '</div>';
   }
   renderSkillQuestion();
+  forceSkillAnsweredUI();
+  void analyzeSkillMistake(q,'',mistakeId);
 });
 
 renderSkillHistory();

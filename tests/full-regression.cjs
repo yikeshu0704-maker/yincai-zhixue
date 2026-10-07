@@ -188,40 +188,6 @@ async function runColdJourney(browser, round) {
   await page.locator('#chat-form').dispatchEvent('submit');
   await page.getByText('好的，我先判断你的卡点，再一步一步引导。').waitFor({ state:'visible', timeout:1500 });
 
-  // Clear-data UX: opening the editor shows existing data; clicking clear wipes everything.
-  await assertPage(page,'analysis');
-  await page.locator('#edit-profile-btn').click();
-  if ((await page.locator('#profile-name').inputValue()) !== profile.name + round) {
-    throw new Error('编辑学情时没有读取已保存学生数据');
-  }
-  page.once('dialog', async dialog => {
-    if (!/清空全部学情数据/.test(dialog.message())) {
-      throw new Error('清空确认文案不正确');
-    }
-    await dialog.accept();
-  });
-  await page.locator('#clear-profile-btn').click();
-  await page.waitForFunction(() => localStorage.getItem('yincaiProfile') === null, { timeout: 1500 });
-
-  await page.reload({ waitUntil:'networkidle' });
-  await page.locator('#onboarding-backdrop').waitFor({ state:'visible', timeout:1000 });
-  const emptyName = await page.locator('#profile-name').inputValue();
-  const emptyGoal = await page.locator('#profile-goal').inputValue();
-  if (emptyName || emptyGoal) throw new Error('清空后重新打开学情表单仍残留旧数据');
-
-  // Restore the test profile so the normal persistence loop can still be validated.
-  await page.locator('#profile-name').fill(profile.name + round);
-  await page.locator('#profile-grade').fill(profile.grade);
-  await page.locator('#profile-subject').fill(profile.subject);
-  await page.locator('#profile-score').fill(profile.score);
-  await page.locator('#onboarding-next').click();
-  await page.locator('#profile-goal').fill(profile.goal);
-  await page.locator('#profile-days').fill(profile.days);
-  await page.locator('#profile-hours').fill(profile.hours);
-  await page.locator('#profile-state').fill(profile.state);
-  await page.locator('#onboarding-form').evaluate(form => form.requestSubmit());
-  await page.waitForFunction(() => document.querySelector('#onboarding-backdrop')?.classList.contains('show') === false);
-
   // Persistence: 10 reloads, with navigation checks each time.
   for (let reload = 1; reload <= 10; reload++) {
     await page.reload({ waitUntil:'networkidle' });
@@ -237,6 +203,34 @@ async function runColdJourney(browser, round) {
     for (const id of ['dashboard','analysis','plan','qa','skills','mistakes','report','motivation']) {
       await assertPage(page,id);
     }
+  }
+
+  // Clear-data UX: after normal persistence has been verified, clearing must wipe profile and derived data.
+  await assertPage(page,'analysis');
+  await page.locator('#edit-profile-btn').click();
+  if ((await page.locator('#profile-name').inputValue()) !== profile.name + round) {
+    throw new Error('编辑学情时没有读取已保存学生数据');
+  }
+  page.once('dialog', async dialog => {
+    if (!/清空全部学情数据/.test(dialog.message())) {
+      throw new Error('清空确认文案不正确');
+    }
+    await dialog.accept();
+  });
+  await page.locator('#clear-profile-btn').click();
+  await page.waitForFunction(() => localStorage.getItem('yincaiProfile') === null, { timeout: 1500 });
+  await page.reload({ waitUntil:'networkidle' });
+  await page.locator('#onboarding-backdrop').waitFor({ state:'visible', timeout:1000 });
+
+  const cleared = await page.evaluate(() => ({
+    profile: localStorage.getItem('yincaiProfile'),
+    mistakes: JSON.parse(localStorage.getItem('yincaiMistakes') || '[]'),
+    history: JSON.parse(localStorage.getItem('yincaiSkillHistory') || '[]'),
+    name: document.getElementById('profile-name')?.value || '',
+    goal: document.getElementById('profile-goal')?.value || ''
+  }));
+  if (cleared.profile !== null || cleared.mistakes.length !== 0 || cleared.history.length !== 0 || cleared.name || cleared.goal) {
+    throw new Error('清空后仍存在旧学生数据');
   }
 
   if (errors.length) throw new Error('第'+round+'轮浏览器错误:\n'+errors.join('\n'));

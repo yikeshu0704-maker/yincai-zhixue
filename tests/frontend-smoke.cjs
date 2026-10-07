@@ -105,6 +105,14 @@ function responseFor(agent) {
     });
   });
 
+  await page.route('**/api/health', async route => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({ status: 'ok', provider: 'mock' })
+    });
+  });
+
   await page.goto('http://127.0.0.1:4173/index.html', { waitUntil: 'networkidle' });
   await page.evaluate(profileData => {
     localStorage.setItem('yincaiProfile', JSON.stringify(profileData));

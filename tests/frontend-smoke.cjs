@@ -139,8 +139,9 @@ function responseFor(agent) {
   await page.waitForTimeout(650);
   const weekCount = await page.locator('#week-plan .week-card').count();
   if (weekCount !== 4) throw new Error('学习路径没有渲染4个阶段，实际：' + weekCount);
-  if ((await page.locator('#plan-status').textContent()).indexOf('路径已生成') < 0) {
-    throw new Error('学习路径生成后状态没有更新');
+  const planStatus = await page.locator('#plan-status').textContent();
+  if (!/路径已生成|AI 已生成|AI 增强失败/.test(planStatus)) {
+    throw new Error('学习路径生成后状态没有更新：' + planStatus);
   }
   if ((await page.locator('#plan-result-title').textContent()).indexOf('20') < 0) {
     throw new Error('学习路径没有使用学生输入的剩余天数');

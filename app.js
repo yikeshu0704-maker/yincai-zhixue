@@ -1291,9 +1291,10 @@ function updateSkillMastery(correct) {
   saveSkillState();
   renderReport();
   renderDashboardTasks();
+  syncDerivedStudentStats();
 }
 
-function renderSkillHistory() {
+function renderSkillHistory {
   const list = document.getElementById('skill-history-list');
   if (!list) return;
   if (!skillHistory.length) {

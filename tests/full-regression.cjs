@@ -111,7 +111,7 @@ async function runColdJourney(browser, round) {
 
   const css = await page.locator('link[rel="stylesheet"]').getAttribute('href');
   const js = await page.locator('script[src*="app.js"]').getAttribute('src');
-  if (!css?.includes('stable-v9') || !js?.includes('stable-v9')) {
+  if (!css?.includes('stable-v10') || !js?.includes('stable-v10')) {
     throw new Error('第' + round + '轮缓存破坏版本号未更新');
   }
 

@@ -176,7 +176,7 @@ function responseFor(agent) {
 
   await page.locator('.nav-item[data-page="analysis"]').click();
   await page.locator('#run-analysis-agent').click();
-  await page.waitForTimeout(200);
+  await page.locator('#diagnosis-result-card').waitFor({ state:'visible', timeout:1500 });
   if (!(await page.locator('#diagnosis-result-card').isVisible())) {
     throw new Error('AI 学情诊断没有把结果渲染到页面');
   }

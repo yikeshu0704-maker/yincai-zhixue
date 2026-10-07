@@ -81,8 +81,8 @@ function responseFor(agent) {
       }
       if (skillCalls > 1) {
         result = {
-          level: '综合题',
-          label: '综合应用',
+          level: '困难题',
+          label: '困难应用',
           question: '一次函数 y = kx + 1 经过点（2，5），求其与 x 轴交点的横坐标。',
           options: { A: '-1', B: '-1/2', C: '1/2', D: '2' },
           answer: 'B',

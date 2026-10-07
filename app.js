@@ -978,8 +978,8 @@ function isDuplicateQuestion(question) {
 }
 
 function difficultyLabel(level, suffix = true) {
-  // 难度体系统一为：基础题 → 中等题 → 综合题 → 变式题（产品定义）
-  const labels = ['基础题','中等题','综合题','变式题'];
+  // 正式训练难度：基础题 → 中等题 → 困难题 → 拔尖题；“变式题”仍是训练方式，不是难度。
+  const labels = ['基础题','中等题','困难题','拔尖题'];
   return labels[Math.max(0, Math.min(3, Number(level) || 0))] + (suffix ? '' : '');
 }
 
@@ -1019,7 +1019,11 @@ function topicMatchesQuestion(topic, q) {
 
 function selectLocalQuestion() {
   const topic = currentSkillTopic();
-  const bank = skillQuestionBank[topic] || genericQuestionBank;
+  const imported = importedJuniorHighBank();
+  const topicBank = imported.filter(q => topicMatchesQuestion(topic, q));
+  const bank = topicBank.length
+    ? topicBank.concat(skillQuestionBank[topic] || [])
+    : (skillQuestionBank[topic] || imported || genericQuestionBank);
   const target = Math.max(0, Math.min(3, skillLevelIndex));
   const unused = bank.filter(q => q.level === target && !isDuplicateQuestion(q.question));
   if (unused.length) return unused[Math.floor(Math.random() * unused.length)];
@@ -1106,6 +1110,9 @@ function parseSkillQuestion(raw) {
 }
 
 function renderSkillQuestion() {
+  const totalImportedQuestions = importedJuniorHighBank().length;
+  const bankCount = document.getElementById('skill-bank-count');
+  if (bankCount) bankCount.textContent = totalImportedQuestions + ' 道初中题';
   const q=dynamicSkillQuestion;
   const submit=document.getElementById('skill-submit');
   const skip=document.getElementById('skill-skip');
@@ -1144,7 +1151,7 @@ function renderSkillQuestion() {
   document.getElementById('skill-mastery').textContent=skillAttempts ? skillMastery+'%' : '--';
   document.getElementById('skill-decision-pill').textContent=skillAnswered?'本题已完成':skillLoading?'AI正在出题':'自适应训练中';
   document.getElementById('skill-decision-text').textContent=skillAnswered?'当前题目已保留。你可以回看后再进入下一题。':skillLoading?'正在根据你的学情和历史表现选择题目。':'下一题会根据这道题的答题表现升难或降难。';
-  document.getElementById('skill-next-level').textContent=skillAnswered?'下一题将综合最新表现':(['基础题','中等题','综合题','变式题'][Math.min(3,skillLevelIndex+1)]||'保持当前难度');
+  document.getElementById('skill-next-level').textContent=skillAnswered?'下一题将综合最新表现':(['基础题','中等题','困难题','拔尖题'][Math.min(3,skillLevelIndex+1)]||'保持当前难度');
 
   const hasChoiceOptions = q.options && ['A','B','C','D'].every(k => q.options[k]);
   if (!hasChoiceOptions || q.inputType === 'text') {
@@ -1183,7 +1190,7 @@ async function generateAISkillQuestion() {
   ).join('，') || '无';
   const mistakes = Object.values(mistakeData).slice(-3).map(item => item.title).join('；') || '无';
   const usedQuestions = skillHistory.map(item => item.question).join('\\n');
-  const levelNames = ['基础题','中等题','综合题','变式题'];
+  const levelNames = ['基础题','中等题','困难题','拔尖题'];
 
   const raw = await callAgent('skill',
     '训练知识点：' + topic + '\\n' +
@@ -1228,7 +1235,7 @@ async function requestDynamicSkillQuestion(lastCorrect) {
     aiError = error;
   }
 
-  const levelMap = {'基础题':0,'中等题':1,'综合题':2,'变式题':3};
+  const levelMap = {'基础题':0,'中等题':1,'困难题':2,'拔尖题':3};
   const feedback = document.getElementById('skill-feedback');
 
   if (aiQuestion) {
@@ -1296,7 +1303,7 @@ function saveSkillAttempt(q,chosen,correct,skipped){
 }
 
 function buildLocalMistakeFeedback(q, chosen) {
-  const levelName = ['基础题','中等题','综合题','变式题'][q.level] || q.label || '训练题';
+  const levelName = ['基础题','中等题','困难题','拔尖题'][q.level] || q.label || '训练题';
   const topic = currentSkillTopic();
   return {
     reason: chosen === q.answer
@@ -1306,8 +1313,8 @@ function buildLocalMistakeFeedback(q, chosen) {
     errorType: chosen === q.answer ? '掌握' : (
       q.level === 0 ? '基础概念或直接计算' :
       q.level === 1 ? '条件提取或两步推理' :
-      q.level === 2 ? '多条件整合或思路组织' :
-      '迁移条件下的思路选择'
+      q.level === 2 ? '多条件整合、综合推理或较强迁移' :
+      '竞赛思维、深度迁移或非套路解法'
     ),
     evidence: '题目：' + q.question + '；你的选择：' + (chosen || '未作答') + '；正确答案：' + q.answer,
     basic: '先做 1 道同知识点基础题，确认核心方法不再出错。',

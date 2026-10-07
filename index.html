@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>因材智学 - 个性化学习智能体</title>
-  <link rel="stylesheet" href="styles.css?v=20261007-stable-v9" />
+  <link rel="stylesheet" href="styles.css?v=20261007-stable-v10" />
 </head>
 <body>
   <div class="app-shell">
@@ -376,6 +376,19 @@
               <button class="ghost-btn" id="skill-next" hidden>下一题</button>
               <button class="primary-btn" id="skill-submit" disabled>提交答案</button>
             </div>
+            <div class="review-training-banner panel-subcard" id="review-training-banner" hidden></div>
+            <div class="handwriting-answer-box" id="handwriting-answer-box">
+              <div class="panel-head compact-head"><h4>手写过程批改</h4><span class="pill">针对训练可用</span></div>
+              <p class="handwriting-hint">从错题复盘进入针对训练后，可以上传自己的手写解题过程。AI 会逐步批改并判断这次是否可以作为掌握证据。</p>
+              <div class="chat-attachment-row">
+                <label class="attachment-btn" for="skill-answer-image">＋ 上传手写答案照片</label>
+                <input id="skill-answer-image" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+                <span id="skill-answer-image-name">尚未选择图片</span>
+                <button type="button" class="clear-image-btn" id="skill-clear-image">移除</button>
+              </div>
+              <button type="button" class="primary-btn" id="skill-image-grade" disabled>AI 批改这份手写答案</button>
+              <div id="skill-image-grade-result" class="image-grade-result"></div>
+            </div>
           </section>
 
           <section class="panel">
@@ -443,7 +456,7 @@
             <div class="panel-head">
               <div><span class="eyebrow">正在复盘</span><h3 id="mistake-title">等待第一道错题</h3></div>
               <div class="hero-actions">
-                <button class="ghost-btn" id="ai-review-start" disabled>AI分析这道错题</button>
+                <button class="ghost-btn" id="ai-review-start" disabled>重新分析这道错题</button>
                 <span class="pill" id="mistake-type">暂无</span>
               </div>
             </div>
@@ -468,12 +481,7 @@
               <div><b id="review-stage-title">等待真实错题</b><p id="review-stage-text">先完成一道练习。系统会从你的实际错误开始复盘，而不是预置示例。</p></div>
             </div>
             <div class="review-action-area" id="review-action-area">
-              <div class="review-question"><b>第一步：判断你的错误原因</b><p>你当时为什么直接写 b = 5？</p></div>
-              <div class="review-options">
-                <button data-review-answer="忘记代入">我忘记把点代入函数</button>
-                <button data-review-answer="把y当b">我把 y 的值直接当成了 b</button>
-                <button data-review-answer="不会">我不知道点在图像上是什么意思</button>
-              </div>
+              <div class="review-loading"><b>选择一道错题开始复盘</b><p>系统会先识别原因、定位知识点、完整讲解，再进入针对训练和掌握验证。</p></div>
             </div>
             <div class="review-footer"><span id="review-status">第 1/5 步 · 诊断中</span><button class="primary-btn" id="review-next">下一步 →</button></div>
           </section>
@@ -601,6 +609,6 @@
   <script src="data/math-junior-cjeval-2.js"></script>
   <script src="data/math-junior-cjeval-3.js"></script>
   <script src="data/math-junior-cjeval-4.js"></script>
-  <script src="app.js?v=20261007-stable-v9"></script>
+  <script src="app.js?v=20261007-stable-v10"></script>
 </body>
 </html>

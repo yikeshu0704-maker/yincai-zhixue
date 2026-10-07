@@ -1010,51 +1010,194 @@ function renderMistake() {
   renderReviewAction(data);
 }
 
+let mistakeAnalysisInFlight = false;
+let selectedMistakeFeedback = '';
+let reviewAnswerImage = null;
+let activeReviewTraining = null;
+
+function reviewSolutionHtml(text) {
+  return escapeHtml(formatQuestionText(text || '')).replace(/\n/g,'<br>');
+}
+
+function getTargetedReviewQuestions(data) {
+  if (!data) return [];
+  if (Array.isArray(data.targetedQuestions) && data.targetedQuestions.length >= 3) return data.targetedQuestions;
+
+  const bank = getSkillTopicBank(currentSkillTopic());
+  const levels = [0,1,2];
+  const used = new Set([normalizeQuestionKey(data.question)]);
+  const picked = [];
+
+  for (const level of levels) {
+    let candidates = bank.filter(q => q && q.level === level && q.question && !used.has(normalizeQuestionKey(q.question)));
+    if (candidates.length === 0) {
+      candidates = bank.filter(q => q && q.level === level && q.question);
+    }
+    if (candidates.length) {
+      const q = candidates[0];
+      picked.push({
+        id:q.id || ('review-' + Date.now() + '-' + level),
+        level:q.level,
+        label:difficultyLabel(q.level),
+        question:q.question,
+        options:q.options,
+        answer:q.answer,
+        explanation:q.explanation || ''
+      });
+      used.add(normalizeQuestionKey(q.question));
+    }
+  }
+  data.targetedQuestions = picked;
+  saveMistakes();
+  return picked;
+}
+
+function openMistakeForReview(id) {
+  currentMistake = id;
+  reviewStep = 1;
+  selectedReviewAnswer = '';
+  selectedMistakeFeedback = mistakeData[id]?.studentFeedback || '';
+  renderMistake();
+  void runMistakeAnalysis(false);
+}
+
+async function runMistakeAnalysis(force = false) {
+  const data = mistakeData[currentMistake];
+  if (!data || mistakeAnalysisInFlight) return;
+  if (!force && data.reviewAnalysisVersion === 2 && data.fullSolution) {
+    renderMistake();
+    return;
+  }
+  mistakeAnalysisInFlight = true;
+  data.reviewAnalysisStatus = 'analyzing';
+  saveMistakes();
+  renderMistake();
+
+  const context =
+    '错题标题：' + (data.title || '') + '\n' +
+    '原错题：' + (data.question || '') + '\n' +
+    '学生原答案/选择：' + (data.chosen || '未提供') + '\n' +
+    '学生是否标记不会：' + (data.skipped ? '是' : '否') + '\n' +
+    '学生主动反馈：' + (data.studentFeedback || '暂无') + '\n' +
+    '已有判断：' + (data.reason || '') + '\n' +
+    '已有知识点：' + (data.knowledge || '') + '\n' +
+    '请返回 reason、knowledge、errorType、evidence、feedbackSummary、fullSolution、whyThisWorks、basic、variant、comprehensive、masteryCheck。' +
+    '\nfullSolution 必须给出这道原题从审题、条件、方法、推导/证明到最终答案的完整流程，不能只给方法名称。';
+
+  try {
+    const raw = await callAgent('mistake', context, 25000);
+    const parsed = parseAgentJson(raw);
+    Object.assign(data, parsed);
+    data.error = parsed.errorType || data.error;
+    data.reviewAnalysisVersion = 2;
+    data.reviewAnalysisStatus = 'ready';
+    data.studentFeedback = selectedMistakeFeedback || data.studentFeedback || '';
+    if (!data.targetedQuestions?.length) getTargetedReviewQuestions(data);
+    saveMistakes();
+    renderMistake();
+    showToast('AI 已完成完整错题复盘');
+  } catch (error) {
+    data.reviewAnalysisStatus = 'error';
+    data.reviewAnalysisError = error.message;
+    saveMistakes();
+    renderMistake();
+    showToast('AI 复盘失败，请检查后端连接');
+  } finally {
+    mistakeAnalysisInFlight = false;
+  }
+}
+
+function submitMistakeFeedback() {
+  const input = document.getElementById('review-feedback-input');
+  selectedMistakeFeedback = input?.value.trim() || '';
+  if (!currentMistake) return;
+  mistakeData[currentMistake].studentFeedback = selectedMistakeFeedback;
+  mistakeData[currentMistake].reviewAnalysisVersion = 0;
+  saveMistakes();
+  void runMistakeAnalysis(true);
+}
+
+function startTargetedReviewQuestion(index) {
+  const data = mistakeData[currentMistake];
+  const questions = getTargetedReviewQuestions(data);
+  const q = questions[index];
+  if (!q) return showToast('针对训练题暂时生成失败');
+
+  activeReviewTraining = {mistakeId:currentMistake,index,questionId:q.id,question:q.question};
+  dynamicSkillQuestion = {...q,source:'mistake-review',targetMistakeId:currentMistake};
+  skillAnswered = false;
+  skillAnswerCorrect = null;
+  selectedSkillOption = '';
+  selectedSkillAnswerImage = null;
+  skillQuestionNo += 1;
+  setSkillGeneration(false);
+  showPage('skills');
+  renderSkillQuestion();
+  showToast('已跳转到这道针对训练题');
+}
+
+function recordTargetedTrainingResult(correct, source = 'choice', feedback = '') {
+  if (!activeReviewTraining) return;
+  const data = mistakeData[activeReviewTraining.mistakeId];
+  if (!data) return;
+  if (!Array.isArray(data.targetedAttempts)) data.targetedAttempts = [];
+  data.targetedAttempts.push({
+    questionId:activeReviewTraining.questionId,
+    question:activeReviewTraining.question,
+    correct:!!correct,
+    source,
+    feedback:feedback || '',
+    createdAt:new Date().toISOString()
+  });
+  const passed = new Set(data.targetedAttempts.filter(x=>x.correct).map(x=>x.questionId)).size;
+  data.masteryVerified = passed >= 2;
+  if (data.masteryVerified) data.masteryVerifiedAt = new Date().toISOString();
+  saveMistakes();
+  renderMistakeListFromStore();
+}
+
 function renderReviewAction(data) {
   const area = document.getElementById('review-action-area');
   if (!area) return;
 
-  if (reviewStep === 1) {
-    area.innerHTML =
-      '<div class="review-question"><b>先确认：这个诊断是否符合你的真实情况？</b><p>选择最接近你的原因，帮助 Agent 校正后续训练。</p></div>' +
-      '<div class="review-options">' +
-      ['我没理解概念','我没抓住题目条件','我知道条件但不会组织思路','计算或代入出错'].map(x =>
-        '<button type="button" data-review-answer="' + escapeHtml(x) + '">' + escapeHtml(x) + '</button>'
-      ).join('') +
-      '</div>';
-  } else if (reviewStep === 2) {
-    area.innerHTML =
-      '<div class="review-question"><b>第二步：锁定知识点</b><p>后续题目会围绕这个知识点，而不是继续刷泛题。</p></div>' +
-      '<div class="review-answer-card"><strong>' + escapeHtml(data.knowledge || '等待 AI 定位') + '</strong><small>' +
-      escapeHtml(data.evidence || '等待更多证据') + '</small></div>';
-  } else if (reviewStep === 3) {
-    area.innerHTML =
-      '<div class="review-question"><b>第三步：记录错误类型</b><p>错误类型会进入你的学习画像，用于调整下一次训练。</p></div>' +
-      '<div class="review-answer-card"><strong>' + escapeHtml(data.errorType || data.error || '待判断') + '</strong><small>' +
-      escapeHtml(data.reason || '等待 AI 给出错因') + '</small></div>';
-  } else if (reviewStep === 4) {
-    area.innerHTML =
-      '<div class="training-ladder">' +
-      '<div class="training-card"><span>① 基础同类题</span><b>' + escapeHtml(data.basic || 'AI 将生成') + '</b></div>' +
-      '<div class="training-card"><span>② 真变式</span><b>' + escapeHtml(data.variant || 'AI 将改变条件或解题入口') + '</b></div>' +
-      '<div class="training-card"><span>③ 综合题</span><b>' + escapeHtml(data.comprehensive || 'AI 将增加多条件整合') + '</b></div>' +
-      '</div>';
-  } else {
-    area.innerHTML =
-      '<div class="mastery-test"><span>掌握检验</span><b>' +
-      escapeHtml(data.masteryCheck || '完成不同形式的新题后，再判断是否真正掌握。') +
-      '</b><div class="mastery-meter"><i style="width:72%"></i></div><small>通过一次不代表掌握，必须在不同题型上稳定表现。</small></div>';
+  if (data.reviewAnalysisStatus === 'analyzing') {
+    area.innerHTML='<div class="review-loading"><b>AI 正在复盘这道题…</b><p>正在结合原题、你的答案和学习记录定位真正卡点。</p></div>';
+    return;
   }
 
-  area.querySelectorAll('[data-review-answer]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      selectedReviewAnswer = btn.dataset.reviewAnswer;
-      area.querySelectorAll('[data-review-answer]').forEach(x => x.classList.remove('selected'));
-      btn.classList.add('selected');
-      showToast('已记录：' + selectedReviewAnswer);
-    });
-  });
+  if (reviewStep === 1) {
+    area.innerHTML='<div class="review-question"><b>① 学生反馈：你当时为什么错？</b><p>你的解释会作为新的证据，AI 会据此重新判断。</p></div>' +
+      '<textarea id="review-feedback-input" class="review-feedback-input" rows="4" placeholder="例如：我知道要代入，但把 y 值直接当成 b；或者：我完全不知道第一步该做什么。">' +
+      escapeHtml(data.studentFeedback || '') + '</textarea>' +
+      '<div class="review-options-row"><button type="button" class="primary-btn" id="review-feedback-submit">提交反馈并重新分析</button><span class="review-feedback-hint">' +
+      escapeHtml(data.feedbackSummary || '系统已经根据原题和你的答案做了初步判断；你反馈后会再次修正。') + '</span></div>';
+  } else if (reviewStep === 2) {
+    area.innerHTML='<div class="review-question"><b>② 定位真正知识点</b><p>告诉你这道题到底在考什么，而不是泛泛说“数学不好”。</p></div>' +
+      '<div class="review-answer-card"><strong>'+escapeHtml(data.knowledge || '等待 AI 定位')+'</strong><small>'+escapeHtml(data.evidence || '等待更多证据')+'</small></div>';
+  } else if (reviewStep === 3) {
+    area.innerHTML='<div class="review-question"><b>③ 这道题到底怎么解决？</b><p>下面是从审题到最终答案的完整流程。</p></div>' +
+      '<div class="full-solution-card">'+reviewSolutionHtml(data.fullSolution || 'AI 尚未生成完整解法，请重新分析。')+'</div>' +
+      '<div class="solution-why"><b>为什么这个方法成立：</b>'+reviewSolutionHtml(data.whyThisWorks || data.reason || '')+'</div>';
+  } else if (reviewStep === 4) {
+    const qs=getTargetedReviewQuestions(data);
+    area.innerHTML='<div class="review-question"><b>④ 针对训练：点击一道题直接跳转</b><p>完成后可以上传手写解题过程，让 AI 批改并判断是否真正掌握。</p></div>' +
+      '<div class="targeted-training-list">'+qs.map((q,i)=>
+        '<button type="button" class="targeted-training-card" data-targeted-index="'+i+'"><span>'+escapeHtml(difficultyLabel(q.level))+'</span><b>'+escapeHtml(formatQuestionText(q.question))+'</b><small>点击进入这道题 →</small></button>'
+      ).join('')+'</div>';
+    area.querySelectorAll('[data-targeted-index]').forEach(btn=>btn.addEventListener('click',()=>startTargetedReviewQuestion(Number(btn.dataset.targetedIndex))));
+  } else {
+    const attempts=Array.isArray(data.targetedAttempts)?data.targetedAttempts:[];
+    const passed=new Set(attempts.filter(x=>x.correct).map(x=>x.questionId)).size;
+    area.innerHTML='<div class="mastery-test"><span>⑤ 掌握验证</span><b>'+
+      (data.masteryVerified?'已验证掌握：你已经在两道不同针对题上正确完成。':'暂未验证掌握：至少两道不同针对题正确，才会标记已验证。')+
+      '</b><div class="mastery-meter"><i style="width:'+Math.min(100,passed*50)+'%"></i></div><small>当前通过不同针对题：'+passed+' 道。</small><button type="button" class="primary-btn" id="mastery-goto-training">继续做针对训练</button></div>';
+    area.querySelector('#mastery-goto-training')?.addEventListener('click',()=>startTargetedReviewQuestion(Math.min(passed,2)));
+  }
+
+  area.querySelector('#review-feedback-submit')?.addEventListener('click',submitMistakeFeedback);
 }
+
+
 
 
 document.querySelectorAll('.mistake-item').forEach(item => item.addEventListener('click', () => {
@@ -1128,6 +1271,7 @@ let skillStreak = 0;
 let skillMastery = Number(profile?.skillMastery || 0);
 let skillAttempts = Number(profile?.skillAttempts || 0);
 let selectedSkillOption = '';
+let selectedSkillAnswerImage = null;
 let dynamicSkillQuestion = null;
 let skillAnswered = false;
 let skillAnswerCorrect = null;
@@ -1421,6 +1565,18 @@ function renderSkillQuestion() {
     }
   }
 
+  const reviewBanner = document.getElementById('review-training-banner');
+  if (reviewBanner) {
+    reviewBanner.hidden = !activeReviewTraining;
+    if (activeReviewTraining) {
+      reviewBanner.innerHTML='<b>错题针对训练</b><p>这道题用于验证：'+escapeHtml(mistakeData[activeReviewTraining.mistakeId]?.knowledge || currentSkillTopic())+'</p>';
+    }
+  }
+  const imageName=document.getElementById('skill-answer-image-name');
+  const imageGrade=document.getElementById('skill-image-grade');
+  if (imageName) imageName.textContent=selectedSkillAnswerImage?.name || '尚未选择图片';
+  if (imageGrade) imageGrade.disabled=!activeReviewTraining || !selectedSkillAnswerImage || skillLoading;
+
   if(submit)submit.disabled=skillAnswered||skillLoading;
   if(skip)skip.disabled=skillAnswered||skillLoading;
   if(nextButton){
@@ -1638,6 +1794,7 @@ function evaluateSkillAnswer(correct){
   forceSkillAnsweredUI();
   queueMicrotask(forceSkillAnsweredUI);
   renderSkillHistory();
+  if (activeReviewTraining) recordTargetedTrainingResult(correct, 'choice', local.errorType || '');
 
   // AI 在后台准备下一题，当前页面完全不等待。
   void prefetchNextSkillQuestion();
@@ -1832,6 +1989,81 @@ document.getElementById('skill-skip')?.addEventListener('click',()=>{
 renderSkillHistory();
 renderSkillQuestion();
 
+document.getElementById('skill-answer-image')?.addEventListener('change', event => {
+  const file=event.target.files?.[0];
+  if(!file)return;
+  if(!['image/jpeg','image/png','image/webp'].includes(file.type)){
+    showToast('手写答案支持 JPG、PNG、WebP');
+    event.target.value=''; return;
+  }
+  if(file.size>8*1024*1024){
+    showToast('手写答案图片请控制在 8MB 以内');
+    event.target.value=''; return;
+  }
+  const reader=new FileReader();
+  reader.onload=()=>{selectedSkillAnswerImage={data:reader.result,mimeType:file.type,name:file.name};renderSkillQuestion();};
+  reader.readAsDataURL(file);
+});
+document.getElementById('skill-clear-image')?.addEventListener('click',()=>{
+  selectedSkillAnswerImage=null;
+  const input=document.getElementById('skill-answer-image');
+  if(input)input.value='';
+  renderSkillQuestion();
+});
+
+async function callAgentImage(agent, context, image, timeoutMs=30000){
+  if(!image?.data)throw new Error('没有可上传的手写答案图片');
+  const controller=new AbortController();
+  const timeoutId=setTimeout(()=>controller.abort(),timeoutMs);
+  try{
+    const response=await fetch(AGENT_API_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent,context,imageData:image.data,imageMimeType:image.mimeType}),signal:controller.signal});
+    const data=await response.json();
+    if(!response.ok||!data?.result)throw new Error(data?.result||('AI 批改失败（HTTP '+response.status+'）'));
+    return data.result;
+  }catch(error){
+    if(error.name==='AbortError')throw new Error('AI 批改超过 '+Math.round(timeoutMs/1000)+' 秒仍未完成');
+    throw error;
+  }finally{clearTimeout(timeoutId);}
+}
+
+async function gradeTargetedHandwrittenAnswer(){
+  if(!activeReviewTraining||!selectedSkillAnswerImage||!dynamicSkillQuestion){
+    showToast('先从错题复盘点击一道针对题，再上传手写答案');
+    return;
+  }
+  const result=document.getElementById('skill-image-grade-result');
+  const button=document.getElementById('skill-image-grade');
+  if(button){button.disabled=true;button.textContent='AI 批改中…';}
+  if(result)result.innerHTML='<div class="image-grade-loading">正在识别你的手写过程，并与原题逐步核对…</div>';
+  const oldMistake=mistakeData[activeReviewTraining.mistakeId];
+  const context='原错题：'+(oldMistake?.question||'')+
+    '\n原错题知识点：'+(oldMistake?.knowledge||currentSkillTopic())+
+    '\n针对训练题：'+(dynamicSkillQuestion.question||'')+
+    '\n标准答案：'+(dynamicSkillQuestion.answer||'')+
+    '\n标准解法：'+(dynamicSkillQuestion.explanation||'')+
+    '\n请识别手写过程，判断最终答案和关键推理是否正确，并指出第一处实质错误。';
+  try{
+    const raw=await callAgentImage('mistakeImage',context,selectedSkillAnswerImage,30000);
+    const data=parseAgentJson(raw);
+    const correct=data.isCorrect===true||String(data.isCorrect).toLowerCase()==='true';
+    recordTargetedTrainingResult(correct,'handwriting',data.errors||'');
+    if(result)result.innerHTML='<div class="image-grade-result '+(correct?'correct':'wrong')+'"><b>'+
+      (correct?'本题通过':'本题未通过')+'</b><p><strong>识别：</strong>'+escapeHtml(data.recognizedWork||'未能完整识别')+
+      '</p><p><strong>批改：</strong>'+escapeHtml(data.errors||'未发现关键错误')+
+      '</p><p><strong>正确做法：</strong>'+reviewSolutionHtml(data.correctedSolution||dynamicSkillQuestion.explanation||'')+
+      '</p><p><strong>掌握验证：</strong>'+escapeHtml(data.masteryMessage||'')+'</p></div>';
+    skillAnswered=true;
+    skillAnswerCorrect=correct;
+    showToast(correct?'手写答案通过':'AI 已定位你的手写过程错误');
+  }catch(error){
+    if(result)result.innerHTML='<div class="image-grade-result wrong"><b>批改失败</b><p>'+escapeHtml(error.message)+'</p></div>';
+  }finally{
+    if(button)button.disabled=!selectedSkillAnswerImage;
+    if(button)button.textContent='AI 批改这份手写答案';
+  }
+}
+document.getElementById('skill-image-grade')?.addEventListener('click',gradeTargetedHandwrittenAnswer);
+
 const motivationComplete=document.getElementById('motivation-complete');
 const motivationBar=document.getElementById('motivation-complete-bar');
 const motivationTitle=document.getElementById('motivation-title');
@@ -1884,39 +2116,9 @@ async function callAgent(agent, context, timeoutMs) {
   return data.result;
 }
 
-const aiReviewStart = document.getElementById('ai-review-start');
-aiReviewStart?.addEventListener('click', async () => {
-  const data = mistakeData[currentMistake];
-  if (!data) {
-    showToast('先选择一道错题');
-    return;
-  }
+const aiReviewStart=document.getElementById('ai-review-start');
+aiReviewStart?.addEventListener('click',()=>runMistakeAnalysis(true));
 
-  aiReviewStart.disabled = true;
-  aiReviewStart.textContent = 'AI分析中…';
-
-  try {
-    const raw = await callAgent('mistake',
-      '错题标题：' + data.title + '\n' +
-      '原错题：' + data.question + '\n' +
-      '学生选择：' + (data.chosen || '') + '\n' +
-      '请返回结构化 JSON，字段：reason,knowledge,errorType,evidence,basic,variant,comprehensive,masteryCheck。'
-    );
-    const parsed = parseAgentJson(raw);
-    Object.assign(data, parsed);
-    data.error = parsed.errorType || data.error;
-    mistakeData[currentMistake] = data;
-    saveMistakes();
-    renderMistake();
-    showToast('错题分析完成');
-  } catch (error) {
-    const stageText = document.getElementById('review-stage-text');
-    if (stageText) stageText.innerHTML = '<b>分析失败</b><br>' + escapeHtml(error.message);
-  } finally {
-    aiReviewStart.disabled = false;
-    aiReviewStart.textContent = 'AI分析这道错题';
-  }
-});
 
 
 

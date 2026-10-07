@@ -603,3 +603,22 @@ button { cursor: pointer; }
 .ai-md-rule{border:0;border-top:1px solid var(--line);margin:10px 0}
 .diagnosis-map-note{display:block;margin-top:3px;color:var(--muted);font-size:11px;line-height:1.5}
 .mistake-item.reviewed{opacity:.72}
+
+.review-loading{padding:18px 20px;border:1px dashed var(--line);border-radius:12px;background:#fafaff}
+.review-feedback-input{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:12px;padding:12px 14px;resize:vertical;font:inherit;line-height:1.6;background:#fff}
+.review-options-row{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+.review-feedback-hint{font-size:12px;color:var(--muted);line-height:1.55}
+.full-solution-card,.solution-why{padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:#fff;line-height:1.8}
+.targeted-training-list{display:grid;gap:10px;margin-top:12px}
+.targeted-training-card{display:block;width:100%;text-align:left;border:1px solid var(--line);background:#fff;border-radius:12px;padding:14px 16px;cursor:pointer}
+.targeted-training-card span,.targeted-training-card small{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}
+.targeted-training-card b{display:block;line-height:1.6}
+.review-training-banner{margin-top:12px;padding:14px 16px;border:1px solid #d9defd;background:#f7f8ff;border-radius:12px}
+.review-training-banner p{margin:6px 0 10px;color:var(--muted);line-height:1.55}
+.handwriting-answer-box{margin-top:14px;padding:14px 16px;border:1px dashed #d8dce8;border-radius:12px;background:#fbfcff}
+.handwriting-hint{color:var(--muted);font-size:12px;line-height:1.55;margin:0 0 10px}
+.image-grade-result{margin-top:10px}
+.image-grade-result.correct,.image-grade-result.wrong{padding:12px 14px;border-radius:10px;line-height:1.7}
+.image-grade-result.correct{background:#effaf4;border:1px solid #cfe9db}
+.image-grade-result.wrong{background:#fff4f4;border:1px solid #f0cccc}
+.mistake-item.reviewed{opacity:.72}

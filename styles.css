@@ -563,3 +563,5 @@ button { cursor: pointer; }
   .onboarding-actions .primary-btn,
   .onboarding-actions .danger-outline-btn{flex:1}
 }
+
+.onboarding-clear-top{margin:0 0 14px}

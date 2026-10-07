@@ -189,6 +189,7 @@ async function runColdJourney(browser, round) {
   await page.getByText('好的，我先判断你的卡点，再一步一步引导。').waitFor({ state:'visible', timeout:1500 });
 
   // Clear-data UX: opening the editor shows existing data; clicking clear wipes everything.
+  await assertPage(page,'analysis');
   await page.locator('#edit-profile-btn').click();
   if ((await page.locator('#profile-name').inputValue()) !== profile.name + round) {
     throw new Error('编辑学情时没有读取已保存学生数据');

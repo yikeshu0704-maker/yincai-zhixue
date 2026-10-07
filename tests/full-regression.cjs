@@ -111,7 +111,7 @@ async function runColdJourney(browser, round) {
 
   const css = await page.locator('link[rel="stylesheet"]').getAttribute('href');
   const js = await page.locator('script[src*="app.js"]').getAttribute('src');
-  if (!css?.includes('stable-v3') || !js?.includes('stable-v3')) {
+  if (!css?.includes('stable-v4') || !js?.includes('stable-v3')) {
     throw new Error('第' + round + '轮缓存破坏版本号未更新');
   }
 
@@ -173,6 +173,11 @@ async function runColdJourney(browser, round) {
 
   await page.locator('#skill-options button[data-skill-option="A"]').click();
   await page.locator('#skill-submit').click();
+
+  await page.locator('#skill-feedback .local-feedback').waitFor({ state:'visible', timeout:1000 });
+  await page.locator('#skill-feedback .ai-feedback').waitFor({ state:'visible', timeout:1500 });
+  const feedbackBlocks = await page.locator('#skill-feedback .skill-feedback-block').count();
+  if (feedbackBlocks !== 2) throw new Error('错题反馈没有同时保留本地反馈和AI补充分析');
 
   await assertPage(page,'mistakes');
   const mistakeCount = Number(await page.locator('#mistake-stat-pending').textContent());

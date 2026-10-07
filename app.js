@@ -1469,11 +1469,26 @@ function evaluateSkillAnswer(correct){
 
   const feedback=document.getElementById('skill-feedback');
   if(feedback){
+    const local = correct
+      ? {
+          title:'本题答对',
+          text:q.explanation||'表现稳定，下一题会根据你的表现调整。'
+        }
+      : {
+          title:'这次出现卡点',
+          text:'正确答案是 '+q.answer+'。'+buildLocalMistakeFeedback(q,chosen).reason
+        };
     feedback.className=correct?'skill-feedback correct':'skill-feedback wrong';
-    feedback.innerHTML='<span>'+(correct?'回答正确':'这次出现卡点')+'</span><p>' +
-      escapeHtml(correct
-        ? (q.explanation||'表现稳定，下一题会根据你的表现调整。')
-        : ('正确答案是 '+q.answer+'。'+buildLocalMistakeFeedback(q,chosen).reason)) + '</p>';
+    feedback.innerHTML =
+      '<div class="skill-feedback-block local-feedback">' +
+        '<span>'+escapeHtml(local.title)+'</span>' +
+        '<p>'+escapeHtml(local.text)+'</p>' +
+      '</div>' +
+      (correct ? '' :
+        '<div class="skill-feedback-block ai-feedback ai-feedback-pending">' +
+          '<span>AI 错因补充分析</span>' +
+          '<p>正在结合你的题目、答案与学习记录补充诊断…</p>' +
+        '</div>');
   }
   renderSkillQuestion();
   forceSkillAnsweredUI();
@@ -1512,11 +1527,24 @@ async function analyzeSkillMistake(q,chosen,mistakeId){
     }
     const feedback=document.getElementById('skill-feedback');
     if(feedback){
-      feedback.className='skill-feedback wrong';
-      feedback.innerHTML='<span>AI 已补充错因分析</span><p><b>'+escapeHtml(data.knowledge||local.knowledge)+'</b><br>'+escapeHtml(data.reason||local.reason)+'</p>';
+      const aiBox = feedback.querySelector('.ai-feedback');
+      if(aiBox){
+        aiBox.classList.remove('ai-feedback-pending');
+        aiBox.innerHTML =
+          '<span>AI 错因补充分析</span>' +
+          '<p><b>'+escapeHtml(data.knowledge||local.knowledge)+'</b><br>'+
+          escapeHtml(data.reason||local.reason)+'</p>';
+      }
     }
   } catch (error) {
-    // AI 增强失败时保留本地诊断，不影响训练流程。
+    const feedback=document.getElementById('skill-feedback');
+    const aiBox=feedback?.querySelector('.ai-feedback');
+    if(aiBox){
+      aiBox.classList.remove('ai-feedback-pending');
+      aiBox.innerHTML =
+        '<span>AI 错因补充分析暂不可用</span>' +
+        '<p>本地错因判断仍然保留，不影响继续训练。</p>';
+    }
   }
 }
 

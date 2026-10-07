@@ -535,3 +535,13 @@ button { cursor: pointer; }
 
 /* Adaptive training: AI prefetch is background-only; never present a blocking spinner. */
 #skill-generation { display: none !important; }
+
+
+/* 一道错题的本地即时反馈 + AI增强诊断同时保留，AI只更新第二块。 */
+.skill-feedback{display:flex;flex-direction:column;gap:10px}
+.skill-feedback-block{padding:10px 12px;border-radius:9px}
+.skill-feedback-block.local-feedback{background:rgba(255,255,255,.5)}
+.skill-feedback-block.ai-feedback{background:#fff7eb;border:1px solid #f3dfb8}
+.skill-feedback-block.ai-feedback-pending{opacity:.86}
+.skill-feedback-block.ai-feedback span{color:#9a6400}
+.skill-feedback-block.ai-feedback p{margin-bottom:0}

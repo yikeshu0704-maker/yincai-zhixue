@@ -77,7 +77,7 @@ function responseFor(agent) {
     if (body.agent === 'skill') {
       skillCalls += 1;
       if (skillCalls === 1) {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        await new Promise(resolve => setTimeout(resolve, 3000));
       }
       if (skillCalls > 1) {
         result = {
@@ -198,11 +198,15 @@ function responseFor(agent) {
   }
 
   await page.locator('.nav-item[data-page="skills"]').click();
+  const firstStart = Date.now();
   await page.locator('#skill-next').click();
   await page.waitForFunction(() => {
     const submit = document.getElementById('skill-submit');
-    return !!submit && !submit.disabled;
-  }, { timeout: 2500 });
+    return !!submit && !submit.disabled && !!document.getElementById('skill-question-text')?.textContent?.trim();
+  }, { timeout: 1000 });
+  if (Date.now() - firstStart > 1000) {
+    throw new Error('开始训练没有做到即时出题');
+  }
   if (!(await page.locator('#skill-options button').count())) {
     throw new Error('点击“开始训练”后没有立即生成题目');
   }
@@ -238,8 +242,16 @@ function responseFor(agent) {
   if (historyCount !== 1) throw new Error('第一题没有进入题目历史');
 
   // 故意点击错误答案，验证错题记录。
+  const nextStart = Date.now();
   await page.locator('#skill-next').click();
-  await page.waitForTimeout(250);
+  await page.waitForFunction(() => {
+    const submit = document.getElementById('skill-submit');
+    return !!submit && !submit.disabled
+      && document.getElementById('skill-question-no')?.textContent?.trim() === '2';
+  }, { timeout: 1000 });
+  if (Date.now() - nextStart > 1000) {
+    throw new Error('下一题仍在等待 AI，路径没有做到即时响应');
+  }
   const currentQuestion = await page.locator('#skill-question-text').textContent();
   if (currentQuestion === firstQuestion) throw new Error('下一题与上一题重复');
 

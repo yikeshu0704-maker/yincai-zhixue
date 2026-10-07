@@ -940,6 +940,10 @@ let skillAnswerCorrect = null;
 let skillLoading = false;
 let skillHistory = JSON.parse(localStorage.getItem('yincaiSkillHistory') || '[]');
 let skillRequestId = 0;
+let prefetchedSkillQuestion = null;
+let prefetchedSkillToken = 0;
+let skillPrefetchToken = 0;
+let skillPrefetchInFlight = false;
 
 function currentSkillTopic() {
   const text = (profile?.primaryTopic || profile?.state || profile?.subject || '').toString();
@@ -984,13 +988,19 @@ function difficultyLabel(level, suffix = true) {
   return labels[Math.max(0, Math.min(3, Number(level) || 0))] + (suffix ? '' : '');
 }
 
+let cachedJuniorHighBank = null;
+let cachedTopicBanks = new Map();
+
 function importedJuniorHighBank() {
+  if (cachedJuniorHighBank) return cachedJuniorHighBank;
+
   const raw = Array.isArray(window.YINCaiJuniorHighMathBank) ? window.YINCaiJuniorHighMathBank : [];
-  return raw.map(q => {
+  cachedJuniorHighBank = raw.map(q => {
     const isCJEval = q.sourceDataset === 'CJEval';
     const level = isCJEval
       ? Math.max(0, Math.min(3, Number(q.difficulty || 0)))
       : Math.max(0, Math.min(3, Number(q.difficulty || 1) - 1));
+
     return {
       ...q,
       level,
@@ -998,6 +1008,8 @@ function importedJuniorHighBank() {
       source: Array.isArray(q.source) ? q.source : []
     };
   });
+
+  return cachedJuniorHighBank;
 }
 
 function topicMatchesQuestion(topic, q) {
@@ -1018,13 +1030,23 @@ function topicMatchesQuestion(topic, q) {
 }
 
 
+function getSkillTopicBank(topic) {
+  const key = String(topic || '通用数学');
+  if (cachedTopicBanks.has(key)) return cachedTopicBanks.get(key);
+
+  const imported = importedJuniorHighBank();
+  const topicBank = imported.filter(q => topicMatchesQuestion(key, q));
+  const bank = topicBank.length
+    ? topicBank.concat(skillQuestionBank[key] || [])
+    : (skillQuestionBank[key] || imported || genericQuestionBank);
+
+  cachedTopicBanks.set(key, bank);
+  return bank;
+}
+
 function selectLocalQuestion() {
   const topic = currentSkillTopic();
-  const imported = importedJuniorHighBank();
-  const topicBank = imported.filter(q => topicMatchesQuestion(topic, q));
-  const bank = topicBank.length
-    ? topicBank.concat(skillQuestionBank[topic] || [])
-    : (skillQuestionBank[topic] || imported || genericQuestionBank);
+  const bank = getSkillTopicBank(topic);
   const target = Math.max(0, Math.min(3, skillLevelIndex));
   const unused = bank.filter(q => q.level === target && !isDuplicateQuestion(q.question));
   if (unused.length) return unused[Math.floor(Math.random() * unused.length)];
@@ -1156,8 +1178,8 @@ function renderSkillQuestion() {
     if(skip)skip.disabled=true;
     if(nextButton){
       nextButton.hidden=!profile;
-      nextButton.disabled=skillLoading;
-      nextButton.textContent=skillLoading?'正在出题…':'开始训练';
+      nextButton.disabled=false;
+      nextButton.textContent='开始训练';
     }
     return;
   }
@@ -1255,83 +1277,79 @@ async function generateAISkillQuestion() {
   return parsed;
 }
 
-async function requestDynamicSkillQuestion(lastCorrect) {
-  const requestId = ++skillRequestId;
-  if (!profile) {
-    showToast('先完成首次学情设置');
-    return;
+function consumePrefetchedSkillQuestion() {
+  if (!prefetchedSkillQuestion || prefetchedSkillToken !== skillPrefetchToken) {
+    prefetchedSkillQuestion = null;
+    return null;
   }
+  const q = prefetchedSkillQuestion;
+  prefetchedSkillQuestion = null;
+  return q;
+}
 
-  // AI 优先出题；首题 5 秒内必须出现，后续题允许 AI 稍久一点。
-  setSkillGeneration(true, 'AI 正在为你出题…', '正在综合薄弱知识点、掌握度、连续答对和错题记录。');
-  renderSkillQuestion();
-
-  const deadlineMs = skillQuestionNo === 0 ? 4000 : 8000;
-  let aiQuestion = null;
-  let aiError = null;
-  try {
-    aiQuestion = await Promise.race([
-      generateAISkillQuestion(),
-      new Promise((_, reject) => setTimeout(
-        () => reject(new Error('AI 出题超过 ' + Math.round(deadlineMs / 1000) + ' 秒')),
-        deadlineMs
-      ))
-    ]);
-  } catch (error) {
-    aiError = error;
-  }
-
-  if (requestId !== skillRequestId) return;
-
-  const levelMap = {'基础题':0,'中等题':1,'困难题':2,'拔尖题':3};
-  const feedback = document.getElementById('skill-feedback');
-
-  if (aiQuestion) {
-    dynamicSkillQuestion = {
-      ...aiQuestion,
-      id: 'ai-' + Date.now(),
-      level: levelMap[aiQuestion.level] !== undefined ? levelMap[aiQuestion.level] : skillLevelIndex,
-      source: 'ai'
-    };
-    skillLevelIndex = dynamicSkillQuestion.level;
-    skillQuestionNo += 1;
-    skillAnswered = false;
-    skillAnswerCorrect = null;
-    selectedSkillOption = '';
-    setSkillGeneration(false);
-    if (feedback) {
-      feedback.className = 'skill-feedback correct';
-      feedback.innerHTML = '<span>AI 已根据你的真实表现出题</span><p>' +
-        escapeHtml(aiQuestion.explanation || '题目难度由 AI 结合你的表现决定。') + '</p>';
-    }
-    renderSkillQuestion();
-    return;
-  }
-
-  // 本地兜底：AI 失败、超时或生成重复题时，使用自适应题库并明确标识。
-  const selected = selectLocalQuestion();
-  await new Promise(resolve => setTimeout(resolve, 200));
-  if (requestId !== skillRequestId) return;
+function showSkillQuestion(question, source) {
   dynamicSkillQuestion = {
-    ...selected,
-    level: typeof selected.level === 'number' ? selected.level : skillLevelIndex,
-    source: 'adaptive-engine'
+    ...question,
+    id: question.id || ((source === 'ai' ? 'ai-' : 'local-') + Date.now()),
+    level: typeof question.level === 'number' ? question.level : skillLevelIndex,
+    source: source || question.source || 'adaptive-engine'
   };
   skillQuestionNo += 1;
   skillAnswered = false;
   skillAnswerCorrect = null;
   selectedSkillOption = '';
   setSkillGeneration(false);
+
+  const feedback = document.getElementById('skill-feedback');
   if (feedback) {
     feedback.className = 'skill-feedback';
-    feedback.innerHTML = '<span>AI 增强失败 · 使用自适应题库</span><p>' +
-      escapeHtml((aiError ? aiError.message + '；' : '') +
-      (selected.reviewOnly ? '题库已进入复习循环。' : '本题从当前重点知识点的自适应题库中选择，答题后系统会调整下一题难度。')) +
-      '</p>';
+    feedback.innerHTML = source === 'ai'
+      ? '<span>AI 已提前准备好下一题</span><p>本题结合你的最新答题表现动态生成。</p>'
+      : '<span>题目已就绪</span><p>即时从自适应题库选择，不等待 AI。</p>';
   }
+
   renderSkillQuestion();
 }
 
+function invalidateSkillPrefetch() {
+  prefetchedSkillQuestion = null;
+  skillPrefetchToken += 1;
+}
+
+async function prefetchNextSkillQuestion() {
+  if (!profile || skillPrefetchInFlight) return;
+
+  const token = ++skillPrefetchToken;
+  skillPrefetchInFlight = true;
+
+  try {
+    const question = await generateAISkillQuestion();
+    if (token !== skillPrefetchToken) return;
+    prefetchedSkillQuestion = question;
+    prefetchedSkillToken = token;
+  } catch (_) {
+    // AI 是后台加速器；失败不影响下一题即时出现。
+  } finally {
+    skillPrefetchInFlight = false;
+  }
+}
+
+function requestDynamicSkillQuestion() {
+  if (!profile) {
+    showToast('先完成首次学情设置');
+    return;
+  }
+
+  const aiQuestion = consumePrefetchedSkillQuestion();
+  if (aiQuestion) {
+    skillLevelIndex = typeof aiQuestion.level === 'number' ? aiQuestion.level : skillLevelIndex;
+    showSkillQuestion(aiQuestion, 'ai');
+    return;
+  }
+
+  invalidateSkillPrefetch();
+  showSkillQuestion(selectLocalQuestion(), 'adaptive-engine');
+}
 function saveSkillAttempt(q,chosen,correct,skipped){
   skillHistory.push({
     id:q.id || ('local-'+Date.now()),
@@ -1398,6 +1416,9 @@ function evaluateSkillAnswer(correct){
   forceSkillAnsweredUI();
   queueMicrotask(forceSkillAnsweredUI);
   renderSkillHistory();
+
+  // AI 在后台准备下一题，当前页面完全不等待。
+  void prefetchNextSkillQuestion();
 }
 
 async function analyzeSkillMistake(q,chosen,mistakeId){
@@ -1503,26 +1524,15 @@ document.getElementById('skill-submit')?.addEventListener('click',async()=>{
   }
 });
 
-document.getElementById('skill-next')?.addEventListener('click',async()=>{
+document.getElementById('skill-next')?.addEventListener('click',()=>{
   if(skillLoading)return;
-
-  // 第一次点击是“开始训练”；只有已有题目并完成作答后才是“下一题”。
-  const last = dynamicSkillQuestion && skillAnswered ? skillAnswerCorrect : null;
 
   if(dynamicSkillQuestion && !skillAnswered){
     showToast('先完成当前题');
     return;
   }
 
-  const nextButton=document.getElementById('skill-next');
-  if(nextButton)nextButton.disabled=true;
-
-  try{
-    await requestDynamicSkillQuestion(last);
-  }finally{
-    if(nextButton)nextButton.disabled=false;
-    renderSkillQuestion();
-  }
+  requestDynamicSkillQuestion();
 });
 
 document.getElementById('skill-skip')?.addEventListener('click',()=>{

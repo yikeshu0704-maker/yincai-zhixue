@@ -96,7 +96,7 @@ public class AgentController {
                       "knowledgeVerified":true,
                       "masteryMessage":"说明这一次能否作为掌握证据，以及还需要什么验证"
                     }
-                    """
+                    """,
             "skill", """
                     你是“因材智学”的自适应技能训练 Agent。
                     根据学生真实表现决定下一题难度，而不是随机出题。

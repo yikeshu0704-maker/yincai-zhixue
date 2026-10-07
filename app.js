@@ -55,6 +55,14 @@ function loadProfile() {
   return profile;
 }
 
+function localDateKey(value = new Date()) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.getFullYear() + '-' +
+    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+    String(d.getDate()).padStart(2, '0');
+}
+
 function saveProfile(nextProfile) {
   profile = nextProfile;
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
@@ -315,11 +323,21 @@ function renderAiMarkdown(value) {
       out.push('<div class="ai-md-gap"></div>');
       continue;
     }
+    if (/^---+$/.test(trimmed) || /^\*\*\*+$/.test(trimmed)) {
+      closeList();
+      out.push('<hr class="ai-md-rule">');
+      continue;
+    }
+
+    const quote = trimmed.match(/^>\s*(.+)$/);
     const bullet = trimmed.match(/^[-*]\s+(.+)$/);
     const numbered = trimmed.match(/^\d+[.)]\s+(.+)$/);
     let content = trimmed.replace(/^#{1,3}\s+/, '');
     content = content.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
-    if (bullet || numbered) {
+    if (quote) {
+      closeList();
+      out.push('<div class="ai-md-quote">' + quote[1] + '</div>');
+    } else if (bullet || numbered) {
       if (!inList) {
         out.push('<ul class="ai-md-list">');
         inList = true;
@@ -1060,6 +1078,15 @@ document.getElementById('review-next')?.addEventListener('click', async () => {
   if (!data) return;
 
   if (reviewStep === 5) {
+    const taskState = (() => {
+      try { return JSON.parse(localStorage.getItem(TASK_KEY) || 'null'); } catch (_) { return null; }
+    })();
+    const reviewTask = taskState?.items?.find(item => item.id === 'review');
+    if (reviewTask) {
+      reviewTask.done = true;
+      localStorage.setItem(TASK_KEY, JSON.stringify(taskState));
+    }
+    syncDerivedStudentStats();
     showToast('复盘完成，已进入再测队列');
     reviewStep = 1;
     renderMistake();
@@ -1118,6 +1145,11 @@ let prefetchedSkillQuestion = null;
 let prefetchedSkillToken = 0;
 let skillPrefetchToken = 0;
 let skillPrefetchInFlight = false;
+
+if (profile && skillAttempts > 0 && !Number.isFinite(Number(profile.initialSkillMastery))) {
+  profile.initialSkillMastery = skillMastery;
+  saveProfile(profile);
+}
 
 function currentSkillTopic() {
   const text = (profile?.primaryTopic || profile?.state || profile?.subject || '').toString();
@@ -1241,6 +1273,9 @@ function updateSkillMastery(correct) {
   skillAttempts += 1;
   if (skillAttempts === 1) {
     skillMastery = correct ? 60 : 20;
+    if (profile && !Number.isFinite(Number(profile.initialSkillMastery))) {
+      profile.initialSkillMastery = skillMastery;
+    }
   } else {
     const recentRaw = correct ? 100 : 0;
     skillMastery = Math.round((skillMastery * 0.7 + recentRaw * 0.3) * 10) / 10;
@@ -1544,6 +1579,7 @@ function saveSkillAttempt(q,chosen,correct,skipped){
   });
   saveSkillHistory();
   renderSkillHistory();
+  syncDerivedStudentStats();
 }
 
 function buildLocalMistakeFeedback(q, chosen) {
@@ -1756,6 +1792,7 @@ document.getElementById('skill-skip')?.addEventListener('click',()=>{
   skillAnswerCorrect=false;
 
   if(profile) saveProfile(profile);
+  syncDerivedStudentStats();
 
   const feedback=document.getElementById('skill-feedback');
   if(feedback){
@@ -1907,7 +1944,7 @@ function renderDashboardTasks() {
   }
 
   const topic = profile.diagnosis?.priorities?.[0]?.name || profile.primaryTopic || profile.subject || '当前重点知识点';
-  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayKey = localDateKey();
   let state;
   try { state = JSON.parse(localStorage.getItem(TASK_KEY) || 'null'); } catch (_) { state = null; }
 
@@ -1975,9 +2012,9 @@ function renderReport() {
   if (masteryChange) {
     const initial = Number(profile?.initialSkillMastery);
     const current = Number(profile?.skillMastery);
-    masteryChange.textContent = skillAttempts >= 2 && Number.isFinite(initial)
+    masteryChange.textContent = Number.isFinite(initial) && skillAttempts >= 2
       ? ((current - initial >= 0 ? '+' : '') + (current - initial).toFixed(1) + ' pt')
-      : '--';
+      : skillAttempts === 1 && Number.isFinite(current) ? '基线已建立' : '--';
   }
 
   const summary = document.getElementById('report-summary-text');
@@ -1998,6 +2035,37 @@ function renderReport() {
       ' 后续训练会根据实际表现继续调整难度。'
     : '本周还没有完整的训练记录。完成几道真实题目后，这里会显示你的实际学习情况。';
   if (pill) pill.textContent = weekItems.length ? '基于真实数据' : '等待学习';
+}
+
+function syncDerivedStudentStats() {
+  const mistakesCount = Object.keys(mistakeData).length;
+  const streak = calculateLearningStreak();
+  const pct = todayCompletePercent();
+
+  const streakNode = document.getElementById('streak-count');
+  const motivationStreakNode = document.getElementById('motivation-streak');
+  const motivationComplete = document.getElementById('motivation-complete');
+  const motivationBar = document.getElementById('motivation-complete-bar');
+  const scoreNode = document.getElementById('motivation-mastery');
+
+  if (streakNode) streakNode.textContent = streak + ' 天';
+  if (motivationStreakNode) motivationStreakNode.textContent = streak + ' 天';
+  if (motivationComplete) motivationComplete.textContent = pct + '%';
+  if (motivationBar) motivationBar.style.width = pct + '%';
+  if (scoreNode) scoreNode.textContent = profile?.skillMastery != null ? profile.skillMastery + '%' : '--';
+
+  const local = profile ? buildLocalMotivation(pct + '%', streak, mistakesCount) : null;
+  if (local) {
+    const dashboardTitle = document.getElementById('dashboard-motivation-title');
+    const dashboardReason = document.getElementById('dashboard-motivation-reason');
+    const dashboardStatus = document.getElementById('dashboard-motivation-status');
+    if (dashboardTitle) dashboardTitle.textContent = local.title;
+    if (dashboardReason) dashboardReason.textContent = local.reason;
+    if (dashboardStatus) dashboardStatus.textContent = local.title.replace('建议：','');
+  }
+
+  renderDashboardTasks();
+  renderReport();
 }
 
 function refreshFirstUseStats() {
@@ -2033,7 +2101,7 @@ function refreshFirstUseStats() {
 
 // 学习激励：完成度来自真实答题数据，不再写死。
 function todayCompletedTasks() {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateKey();
   return skillHistory.filter(item => (item.createdAt || '').slice(0, 10) === today).length;
 }
 

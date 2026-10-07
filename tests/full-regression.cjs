@@ -141,6 +141,10 @@ async function runColdJourney(browser, round) {
   if (!(await page.locator('#motivation').locator('text=学习激励 Agent').isVisible())) {
     throw new Error('首页没有可见的学习激励入口');
   }
+  const motivationPercent = await page.locator('#motivation-complete').textContent();
+  if (motivationPercent.trim() === '0%') throw new Error('真实训练后学习激励仍显示今日完成0%');
+  const masteryText = await page.locator('#report-mastery-change').textContent();
+  if (masteryText.trim() === '--') throw new Error('真实训练后知识点提升仍显示--');
 
   // Test actual in-page jump buttons in addition to sidebar navigation.
   await assertPage(page,'dashboard');
@@ -197,6 +201,7 @@ async function runColdJourney(browser, round) {
   await page.locator('#chat-log').getByText('好的，我先判断你的卡点，再一步一步引导。').waitFor({ state:'visible', timeout:1500 });
   if ((await page.locator('#tutor-question-text').textContent()).includes('AB = AC')) throw new Error('答疑区残留固定几何示例');
   if ((await page.locator('#chat-log').textContent()).includes('**')) throw new Error('AI答疑仍显示原始Markdown星号');
+  if ((await page.locator('#chat-log').textContent()).includes('---')) throw new Error('AI答疑仍显示原始Markdown分隔线');
   await assertPage(page,'report');
   const reportText = await page.locator('#report-summary-text').textContent();
   const reportPill = await page.locator('#report-summary-pill').textContent();

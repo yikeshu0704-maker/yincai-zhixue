@@ -598,3 +598,7 @@ button { cursor: pointer; }
 @media(max-width:720px){
   .motivation-dashboard-card{align-items:flex-start;flex-direction:column}
 }
+
+.ai-md-quote{margin:6px 0;padding-left:12px;border-left:3px solid #cbd1ff;color:#424b72}
+.ai-md-rule{border:0;border-top:1px solid var(--line);margin:10px 0}
+.diagnosis-map-note{display:block;margin-top:3px;color:var(--muted);font-size:11px;line-height:1.5}

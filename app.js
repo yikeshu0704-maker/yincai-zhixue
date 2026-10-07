@@ -1346,6 +1346,12 @@ function evaluateSkillAnswer(correct){
         : ('正确答案是 '+q.answer+'。'+buildLocalMistakeFeedback(q,chosen).reason)) + '</p>';
   }
   renderSkillQuestion();
+  const nextButton=document.getElementById('skill-next');
+  if (nextButton) {
+    nextButton.hidden=false;
+    nextButton.disabled=false;
+    nextButton.textContent='下一题';
+  }
   renderSkillHistory();
 }
 

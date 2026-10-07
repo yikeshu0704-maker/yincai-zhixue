@@ -939,6 +939,7 @@ let skillAnswered = false;
 let skillAnswerCorrect = null;
 let skillLoading = false;
 let skillHistory = JSON.parse(localStorage.getItem('yincaiSkillHistory') || '[]');
+let skillRequestId = 0;
 
 function currentSkillTopic() {
   const text = (profile?.primaryTopic || profile?.state || profile?.subject || '').toString();
@@ -1211,6 +1212,7 @@ async function generateAISkillQuestion() {
 }
 
 async function requestDynamicSkillQuestion(lastCorrect) {
+  const requestId = ++skillRequestId;
   if (!profile) {
     showToast('先完成首次学情设置');
     return;
@@ -1234,6 +1236,8 @@ async function requestDynamicSkillQuestion(lastCorrect) {
   } catch (error) {
     aiError = error;
   }
+
+  if (requestId !== skillRequestId) return;
 
   const levelMap = {'基础题':0,'中等题':1,'困难题':2,'拔尖题':3};
   const feedback = document.getElementById('skill-feedback');
@@ -1263,6 +1267,7 @@ async function requestDynamicSkillQuestion(lastCorrect) {
   // 本地兜底：AI 失败、超时或生成重复题时，使用自适应题库并明确标识。
   const selected = selectLocalQuestion();
   await new Promise(resolve => setTimeout(resolve, 200));
+  if (requestId !== skillRequestId) return;
   dynamicSkillQuestion = {
     ...selected,
     level: typeof selected.level === 'number' ? selected.level : skillLevelIndex,
@@ -1421,6 +1426,8 @@ document.getElementById('skill-submit')?.addEventListener('click',async()=>{
   }
 
   const chosen=selectedSkillOption;
+  // 作答后立即使可能残留的旧出题请求失效，避免异步回写覆盖“已完成”状态。
+  skillRequestId += 1;
   const correct=q.inputType==='text' ? skillAnswersEquivalent(chosen,q.answer) : chosen===q.answer;
   let mistakeId=null;
 
@@ -1480,6 +1487,7 @@ document.getElementById('skill-next')?.addEventListener('click',async()=>{
 document.getElementById('skill-skip')?.addEventListener('click',()=>{
   const q=dynamicSkillQuestion;
   if(!q||skillAnswered||skillLoading)return;
+  skillRequestId += 1;
 
   skillStreak=0;
   if(skillLevelIndex>0)skillLevelIndex-=1;

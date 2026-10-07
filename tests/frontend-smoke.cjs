@@ -115,6 +115,8 @@ function responseFor(agent) {
   }, profile);
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(500);
+  const bankText = (await page.locator('#skill-bank-count').textContent()).trim();
+  if (bankText !== '3000 道初中题') throw new Error('题库数量显示错误：' + bankText);
 
   for (const id of ['dashboard', 'analysis', 'plan', 'qa', 'skills', 'mistakes', 'report', 'motivation']) {
     await page.locator('.nav-item[data-page="' + id + '"]').click();

@@ -495,7 +495,7 @@ async function runAnalysisAgent() {
     const answer = await callAgent(
       'analysis',
       profileContext() + '\n请在不改变学生事实的前提下，增强这份第一版画像；仅补充有依据的优先级和证据。',
-      60000
+      25000
     );
     const data = parseAgentJson(answer);
     if (!data?.priorities?.length) {

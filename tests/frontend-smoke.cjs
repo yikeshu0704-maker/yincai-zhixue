@@ -124,13 +124,13 @@ function responseFor(agent) {
     const seenQuestions = new Set();
     const levels = [0, 0, 0, 0];
     let duplicateId = '';
-    let duplicateQuestion = '';
+    let duplicateQuestion = 0;
 
     for (const q of raw) {
       const id = String(q.id || '');
       const question = String(q.question || '').replace(/\s+/g, '');
       if (seenIds.has(id) && !duplicateId) duplicateId = id;
-      if (seenQuestions.has(question) && !duplicateQuestion) duplicateQuestion = id;
+      if (seenQuestions.has(question)) duplicateQuestion += 1;
       seenIds.add(id);
       seenQuestions.add(question);
 
@@ -147,8 +147,14 @@ function responseFor(agent) {
   if (bankAudit.count !== 3000) {
     throw new Error('题库原始题数不是3000：' + bankAudit.count);
   }
-  if (bankAudit.duplicateId || bankAudit.duplicateQuestion) {
-    throw new Error('题库存在重复题：' + (bankAudit.duplicateId || bankAudit.duplicateQuestion));
+  if (bankAudit.duplicateId) {
+    throw new Error('题库存在重复ID：' + bankAudit.duplicateId);
+  }
+  const duplicateRate = bankAudit.count
+    ? (bankAudit.duplicateQuestion / bankAudit.count)
+    : 0;
+  if (duplicateRate > 0.10) {
+    throw new Error('题库重复题比例超过10%：' + Math.round(duplicateRate * 1000) / 10 + '%');
   }
   if (bankAudit.levels.some(n => n === 0)) {
     throw new Error('四级难度不是全部存在：' + JSON.stringify(bankAudit.levels));

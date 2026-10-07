@@ -453,6 +453,209 @@ document.querySelectorAll('[data-prompt]').forEach(button => button.addEventList
 renderTutorStage();
 
 
+function renderDiagnosisResult(data) {
+  profile.diagnosis = data;
+  profile.primaryTopic = data.priorities?.[0]?.name || '';
+  profile.diagnosedAt = new Date().toISOString();
+  saveProfile(profile);
+
+  const diagnosisCard = document.getElementById('diagnosis-result-card');
+  if (diagnosisCard) diagnosisCard.hidden = !profile.diagnosis;
+  const diagnosisState = document.getElementById('profile-diagnosis-state');
+  if (diagnosisState) {
+    diagnosisState.textContent = profile.primaryTopic
+      ? 'AI 已诊断 · 当前重点：' + profile.primaryTopic
+      : 'AI 已完成第一版学习画像';
+  }
+
+  const main = document.getElementById('analysis-main');
+  const summary = document.getElementById('analysis-agent-result');
+  if (main) main.textContent = (data.priorities || []).slice(0, 2).map(item => item.name).filter(Boolean).join(' + ') || '待诊断';
+  if (summary) summary.innerHTML = '<b>总体判断：</b> ' + escapeHtml(data.summary || '暂无') + '<br><b>下一步：</b> ' + escapeHtml(data.recommendedAction || '暂无');
+
+  const reasons = [
+    document.getElementById('analysis-reason-1'),
+    document.getElementById('analysis-reason-2'),
+    document.getElementById('analysis-reason-3')
+  ];
+  (data.priorities || []).slice(0, 3).forEach((item, index) => {
+    if (!reasons[index]) return;
+    const mastery = typeof item.mastery === 'number' ? '掌握度 ' + item.mastery + '%' : '掌握度待诊断';
+    reasons[index].innerHTML = '<b>' + escapeHtml(item.name || '未命名知识点') + '</b> · ' +
+      escapeHtml(item.priority || '待诊断') + ' · ' + mastery + '<br>' + escapeHtml(item.evidence || '暂无依据');
+  });
+
+  const map = document.getElementById('mastery-list');
+  if (map) {
+    const list = data.priorities || [];
+    map.innerHTML = list.length ? list.map(item => {
+      const mastery = typeof item.mastery === 'number' ? item.mastery : null;
+      const priorityClass = item.priority === '高' ? 'priority-high' : item.priority === '中' ? 'priority-mid' : '';
+      const pendingClass = mastery === null ? ' pending' : '';
+      return '<div class="mastery-row ' + priorityClass + pendingClass + '">' +
+        '<div class="mastery-name"><b>' + escapeHtml(item.name || '知识点') + '</b><span>' + escapeHtml(item.priority || '待诊断') + '</span></div>' +
+        '<div class="mastery-bar"><i style="width:' + (mastery === null ? 0 : mastery) + '%"></i></div>' +
+        '<strong>' + (mastery === null ? '待测' : mastery + '%') + '</strong>' +
+      '</div>';
+    }).join('') : '<div class="empty-state"><b>AI 暂时无法形成知识点地图</b><p>请先补充更多测试结果或答题记录。</p></div>';
+  }
+
+  const resultCard = document.getElementById('diagnosis-result-card');
+  const resultTitle = document.getElementById('diagnosis-result-title');
+  const resultSummary = document.getElementById('diagnosis-result-summary');
+  const resultPriorities = document.getElementById('diagnosis-result-priorities');
+  const resultNext = document.getElementById('diagnosis-result-next');
+
+  if (resultCard) resultCard.hidden = false;
+  if (resultTitle) {
+    resultTitle.textContent = (data.priorities || []).slice(0, 2).map(item => item.name).filter(Boolean).join(' + ') || '已建立第一版学习画像';
+  }
+  if (resultSummary) resultSummary.textContent = data.summary || 'AI 已完成第一版学习判断。';
+  if (resultNext) resultNext.textContent = data.recommendedAction || '进入学习路径规划。';
+  if (resultPriorities) {
+    resultPriorities.innerHTML = (data.priorities || []).slice(0, 4).map(item =>
+      '<span class="diagnosis-chip">' +
+      escapeHtml(item.name || '知识点') + ' · ' +
+      escapeHtml(item.priority || '待诊断') +
+      '</span>'
+    ).join('');
+  }
+
+  const skillTitle = document.getElementById('skill-topic-title');
+  if (skillTitle && data.priorities?.[0]?.name) skillTitle.textContent = data.priorities[0].name + ' · AI训练';
+  showToast('学情诊断已更新');
+}
+
+let analysisProgressTimer = null;
+
+function startAnalysisProgress() {
+  clearInterval(analysisProgressTimer);
+  let value = 8;
+  let step = 0;
+  const messages = [
+    '正在读取你的学情信息…',
+    '正在判断哪些信息足够形成证据…',
+    '正在排列当前干预优先级…',
+    '正在形成你的第一份学习画像…'
+  ];
+  const bar = document.getElementById('analysis-progress-bar');
+  const text = document.getElementById('analysis-progress-text');
+  if (bar) {
+    bar.style.width = value + '%';
+    bar.classList.add('running');
+    bar.classList.remove('failed');
+  }
+  if (text) text.textContent = messages[0];
+
+  analysisProgressTimer = setInterval(() => {
+    value = Math.min(88, value + 8);
+    step = Math.min(messages.length - 1, step + 1);
+    if (bar) bar.style.width = value + '%';
+    if (text) text.textContent = messages[step];
+  }, 1500);
+}
+
+function finishAnalysisProgress(success, message) {
+  clearInterval(analysisProgressTimer);
+  const bar = document.getElementById('analysis-progress-bar');
+  const text = document.getElementById('analysis-progress-text');
+  if (bar) {
+    bar.style.width = success ? '100%' : '0%';
+    bar.classList.remove('running');
+    bar.classList.toggle('failed', !success);
+  }
+  if (text) text.textContent = message;
+}
+
+function buildFallbackDiagnosis() {
+  const text = String(profile?.state || '');
+  const priorities = [];
+
+  if (/函数|一次函数|函数综合|反比例/.test(text)) {
+    priorities.push({
+      name: '函数综合应用',
+      priority: /综合|经常|错误|不会/.test(text) ? '高' : '中',
+      mastery: null,
+      evidence: '来自学生自述中的函数相关困难；当前缺少足够测试数据，不虚构掌握度。'
+    });
+  }
+
+  if (/几何|证明|三角形|辅助线/.test(text)) {
+    priorities.push({
+      name: '几何证明',
+      priority: /证明|不知道|不会|经常/.test(text) ? '高' : '中',
+      mastery: null,
+      evidence: '来自学生自述中的几何/证明困难；当前缺少足够测试数据，不虚构掌握度。'
+    });
+  }
+
+  if (!priorities.length) {
+    priorities.push({
+      name: profile?.subject || '当前学科',
+      priority: '待诊断',
+      mastery: null,
+      evidence: '首次使用数据不足，先通过技能训练收集真实表现。'
+    });
+  }
+
+  return {
+    summary: '当前先依据你主动填写的学习情况建立第一版学习画像；正式掌握度会随着测试和训练数据逐步修正。',
+    priorities,
+    recommendedAction: '先完成技能训练，收集真实答题表现，再动态更新知识点掌握度。'
+  };
+}
+
+async function runAnalysisAgent() {
+  if (!profile) {
+    openOnboarding();
+    showToast('先完成首次学情设置');
+    return;
+  }
+
+  // 先用当前真实填写建立稳定的第一版画像，绝不让 AI 请求阻塞学生。
+  const firstPass = buildFallbackDiagnosis();
+  renderDiagnosisResult(firstPass);
+  renderProfile();
+  finishAnalysisProgress(true, '第一版学习画像已建立 · 后续由训练数据校正');
+
+  if (analysisAgentButton) {
+    analysisAgentButton.disabled = true;
+    analysisAgentButton.textContent = 'AI增强分析中…';
+  }
+
+  try {
+    const answer = await callAgent(
+      'analysis',
+      profileContext() + '\n请在不改变学生事实的前提下，增强这份第一版画像；仅补充有依据的优先级和证据。',
+      25000
+    );
+    const data = parseAgentJson(answer);
+    if (!data?.priorities?.length) {
+      throw new Error('AI 返回结构缺少 priorities 字段，未覆盖第一版画像。');
+    }
+    renderDiagnosisResult(data);
+    renderProfile();
+    finishAnalysisProgress(true, 'AI 已增强学习画像 · 后续训练继续校正');
+    showToast('AI已完成学习画像增强');
+  } catch (error) {
+    const resultNode = document.getElementById('analysis-agent-result');
+    if (resultNode) {
+      resultNode.innerHTML =
+        '<b>第一版学习画像正常可用</b>' +
+        '<br><span>AI增强本次未完成，核心学习流程不受影响。</span>' +
+        '<details class="agent-error-detail"><summary>查看 AI 请求状态</summary><p>' +
+        escapeHtml(error.message) + '</p></details>';
+    }
+  } finally {
+    if (analysisAgentButton) {
+      analysisAgentButton.disabled = false;
+      analysisAgentButton.textContent = 'AI重新诊断';
+    }
+  }
+}
+
+analysisAgentButton?.addEventListener('click', runAnalysisAgent);
+
 const planGoal = document.getElementById('plan-goal');
 const planDays = document.getElementById('plan-days');
 const planHours = document.getElementById('plan-hours');

@@ -1,8 +1,8 @@
 name: Deploy Yincai Zhixue
 
+# Pages 站点目前尚未由仓库设置启用；在启用 Pages 前不让每次代码提交都产生必然失败的部署检查。
+# 启用 GitHub Pages 后，在 Actions 中手动运行本工作流即可部署。
 on:
-  push:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:

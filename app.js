@@ -453,6 +453,67 @@ document.querySelectorAll('[data-prompt]').forEach(button => button.addEventList
 renderTutorStage();
 
 
+const analysisAgentButton = document.getElementById('run-analysis-agent');
+
+function parseAgentJson(raw) {
+  if (raw && typeof raw === 'object') return raw;
+  if (typeof raw !== 'string') {
+    throw new Error('Agent 返回内容不是可解析的 JSON。');
+  }
+
+  const variants = [];
+  const original = raw.trim();
+  variants.push(original);
+  variants.push(original.replace(/^\u0060\u0060\u0060json\s*/i, '').replace(/\s*\u0060\u0060\u0060$/i, '').trim());
+
+  try {
+    const quoted = JSON.parse(original);
+    if (typeof quoted === 'string') variants.push(quoted.trim());
+  } catch (_) {}
+
+  for (const candidate of variants) {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch (_) {}
+
+    const start = candidate.indexOf('{');
+    if (start < 0) continue;
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+
+    for (let i = start; i < candidate.length; i++) {
+      const char = candidate[i];
+
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (char === '\\') escaped = true;
+        else if (char === '"') inString = false;
+        continue;
+      }
+
+      if (char === '"') inString = true;
+      else if (char === '{') depth++;
+      else if (char === '}') {
+        depth--;
+        if (depth === 0) {
+          const fragment = candidate.slice(start, i + 1);
+          try {
+            const parsed = JSON.parse(fragment);
+            if (parsed && typeof parsed === 'object') return parsed;
+          } catch (_) {}
+          break;
+        }
+      }
+    }
+  }
+
+  throw new Error('Agent 返回的结构化结果无法解析。请重试；如果连续失败，检查后端是否已重启。');
+}
+
+
 function renderDiagnosisResult(data) {
   profile.diagnosis = data;
   profile.primaryTopic = data.priorities?.[0]?.name || '';

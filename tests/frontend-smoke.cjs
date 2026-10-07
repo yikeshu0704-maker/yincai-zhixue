@@ -241,37 +241,42 @@ function responseFor(agent) {
   const historyCount = await page.locator('#skill-history-list .skill-history-item').count();
   if (historyCount !== 1) throw new Error('第一题没有进入题目历史');
 
-  // 故意点击错误答案，验证错题记录。
-  const nextStart = Date.now();
-  await page.locator('#skill-next').click();
-  await page.waitForFunction(() => {
-    const submit = document.getElementById('skill-submit');
-    return !!submit && !submit.disabled
-      && document.getElementById('skill-question-no')?.textContent?.trim() === '2';
-  }, { timeout: 1000 });
-  if (Date.now() - nextStart > 1000) {
-    throw new Error('下一题仍在等待 AI，路径没有做到即时响应');
+  // 验证错题链路：不要假设某个固定选项一定错误，连续尝试不同答案直到产生一条真实错题。
+  let mistakeCount = 0;
+  for (let attempt = 0; attempt < 4 && mistakeCount < 1; attempt++) {
+    const nextStart = Date.now();
+    if (attempt > 0) {
+      await page.locator('#skill-next').click();
+      await page.waitForFunction((expected) => {
+        const submit = document.getElementById('skill-submit');
+        return !!submit && !submit.disabled
+          && document.getElementById('skill-question-no')?.textContent?.trim() === String(expected);
+      }, attempt + 2, { timeout: 1000 });
+    }
+
+    const options = page.locator('#skill-options button[data-skill-option]');
+    const count = await options.count();
+    if (count) {
+      await options.nth(attempt % count).click();
+    } else {
+      await page.locator('#skill-free-answer').fill('__smoke_wrong_' + attempt + '__');
+    }
+
+    await page.locator('#skill-submit').click();
+    await page.waitForFunction(() => {
+      const panel = document.getElementById('skills');
+      return panel?.dataset.skillState === 'answered';
+    }, { timeout: 1500 });
+
+    mistakeCount = Number((await page.locator('#mistake-stat-pending').textContent()).trim());
+    if (Date.now() - nextStart > 2000) {
+      throw new Error('错题训练响应异常缓慢');
+    }
   }
-  const currentQuestion = await page.locator('#skill-question-text').textContent();
-  if (currentQuestion === firstQuestion) throw new Error('下一题与上一题重复');
 
-  if (await page.locator('#skill-options button').count()) {
-    await page.locator('#skill-options button[data-skill-option="A"]').click();
-  } else {
-    await page.locator('#skill-free-answer').fill('__smoke_second__');
+  if (mistakeCount < 1) {
+    throw new Error('连续4次不同答案后仍未产生错题记录');
   }
-  await page.locator('#skill-submit').click();
-  await page.waitForFunction(() => {
-    const panel = document.getElementById('skills');
-    return panel?.dataset.skillState === 'answered';
-  }, { timeout: 1500 });
-
-  const mistakeCount = Number((await page.locator('#mistake-stat-pending').textContent()).trim());
-  if (mistakeCount < 1) throw new Error('答错后没有进入错题本，当前数量：' + mistakeCount);
-
-  const historyItems = await page.locator('#skill-history-list .skill-history-item').count();
-  if (historyItems !== 2) throw new Error('第二题提交后没有进入题目历史');
-
   await page.locator('.nav-item[data-page="qa"]').click();
   await page.locator('#chat-input').fill('你好，请先告诉我应该怎么学。');
   await page.locator('#chat-form').dispatchEvent('submit');

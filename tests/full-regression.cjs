@@ -135,6 +135,13 @@ async function runColdJourney(browser, round) {
     await assertPage(page,id);
   }
 
+  // Test actual in-page jump buttons in addition to sidebar navigation.
+  await assertPage(page,'dashboard');
+  await page.locator('#dashboard button[data-go="plan"]').first().click();
+  await page.locator('#plan').waitFor({ state:'visible', timeout:1000 });
+  await page.locator('button[data-go="qa"]').first().click();
+  await page.locator('#qa').waitFor({ state:'visible', timeout:1000 });
+
   // Analysis -> plan -> skill -> mistake -> QA
   await assertPage(page,'analysis');
   await page.locator('#run-analysis-agent').click();

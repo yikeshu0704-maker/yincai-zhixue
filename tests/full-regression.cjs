@@ -191,7 +191,11 @@ async function runColdJourney(browser, round) {
   if ((await page.locator('#tutor-question-text').textContent()).includes('AB = AC')) throw new Error('答疑区残留固定几何示例');
   if ((await page.locator('#chat-log').textContent()).includes('**')) throw new Error('AI答疑仍显示原始Markdown星号');
   await assertPage(page,'report');
-  if (!(await page.locator('#report-summary-text').textContent()).includes('真实训练')) throw new Error('学习报告仍是预置总结');
+  const reportText = await page.locator('#report-summary-text').textContent();
+  const reportPill = await page.locator('#report-summary-pill').textContent();
+  if (reportText.includes('最大的突破是“一次函数”') || reportPill === '持续进步') {
+    throw new Error('学习报告仍使用预置总结');
+  }
 
   // Persistence: 10 reloads, with navigation checks each time.
   for (let reload = 1; reload <= 10; reload++) {

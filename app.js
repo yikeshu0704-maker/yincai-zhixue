@@ -354,39 +354,26 @@ function renderAiMarkdown(value) {
 }
 
 function formatQuestionText(value) {
-  let text = value == null ? '' : String(value);
-  text = text
-    .replace(/\\textless\s*\{\}/g, '<')
-    .replace(/\\textgreater\s*\{\}/g, '>')
-    .replace(/\\textless/g, '<')
-    .replace(/\\textgreater/g, '>')
-    .replace(/\\ne/g, '≠')
-    .replace(/\\leqslant|\\leq/g, '≤')
-    .replace(/\\geqslant|\\geq/g, '≥')
-    .replace(/\\neq/g, '≠')
-    .replace(/\\approx/g, '≈')
-    .replace(/\\times/g, '×')
-    .replace(/\\cdot/g, '·')
-    .replace(/\\pm/g, '±')
-    .replace(/\\mp/g, '∓')
-    .replace(/\\infty/g, '∞')
-    .replace(/\\angle/g, '∠')
-    .replace(/\\triangle/g, '△')
-    .replace(/\\parallel/g, '∥')
-    .replace(/\\perp/g, '⊥')
-    .replace(/\\sqrt\{([^{}]+)\}/g, '√($1)')
-    .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, '($1)/($2)')
-    .replace(/\\text\{([^{}]*)\}/g, '$1')
-    .replace(/\\left|\\right/g, '')
-    .replace(/\$\$/g, '')
-    .replace(/\\\(|\\\)|\\\[|\\\]/g, '')
-    .replace(/\\,/g, ' ')
-    .replace(/\\;/g, ' ')
-    .replace(/\\!/g, '')
-    .replace(/\{([^{}]*)\}/g, '$1')
-    .replace(/\s+/g, ' ')
-    .trim();
-  return text;
+  let text=value==null?'':String(value);
+  const supers={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','=':'⁼','n':'ⁿ','i':'ⁱ'};
+  const subs={'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','+':'₊','-':'₋','=':'₌','n':'ₙ','i':'ᵢ'};
+  const sup=v=>String(v).split('').map(ch=>supers[ch]||ch).join('');
+  const sub=v=>String(v).split('').map(ch=>subs[ch]||ch).join('');
+  return text
+    .replace(/\\textless\s*\{\}/g,'<').replace(/\\textgreater\s*\{\}/g,'>')
+    .replace(/\\textless/g,'<').replace(/\\textgreater/g,'>')
+    .replace(/\\textbar|\\mid/g,'|').replace(/\\ne|\\neq/g,'≠')
+    .replace(/\\leqslant|\\leq/g,'≤').replace(/\\geqslant|\\geq/g,'≥')
+    .replace(/\\approx/g,'≈').replace(/\\times/g,'×').replace(/\\cdot/g,'·')
+    .replace(/\\pm/g,'±').replace(/\\infty/g,'∞').replace(/\\angle/g,'∠').replace(/\\triangle/g,'△')
+    .replace(/\\parallel/g,'∥').replace(/\\perp/g,'⊥').replace(/\\to|\\rightarrow/g,'→')
+    .replace(/\\left|\\right/g,'').replace(/\\textbf\s*\{([^{}]*)\}/g,'$1').replace(/\\text\s*\{([^{}]*)\}/g,'$1')
+    .replace(/\\mathrm\s*\{([^{}]*)\}/g,'$1').replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g,'($1)/($2)')
+    .replace(/\\sqrt\{([^{}]+)\}/g,'√($1)').replace(/\$\$/g,'').replace(/\$([^$]+)\$/g,'')
+    .replace(/\\\(|\\\)|\\\[|\\\]/g,'').replace(/\\,/g,' ').replace(/\\;/g,' ').replace(/\\!/g,'')
+    .replace(/\^\{([^{}]+)\}/g,(_,v)=>sup(v)).replace(/\^([0-9n])/g,(_,v)=>sup(v))
+    .replace(/_\{([^{}]+)\}/g,(_,v)=>sub(v)).replace(/_([0-9n])/g,(_,v)=>sub(v))
+    .replace(/\{([^{}]*)\}/g,'').replace(/\s+/g,' ').trim();
 }
 
 
@@ -1475,7 +1462,7 @@ async function generateAISkillQuestion() {
   const raw = await callAgent('skill',
     '训练知识点：' + topic + '\\n' +
     '当前掌握度：' + (skillAttempts ? skillMastery + '%' : '尚无数据，从基础难度开始') + '\\n' +
-    '当前训练难度：' + levelNames[Math.min(3, skillLevelIndex)] + '\\n' +
+    '当前训练难度（必须严格遵守）：' + levelNames[Math.min(3, skillLevelIndex)] + '\\n' +
     '连续答对：' + skillStreak + '\\n' +
     '最近表现：' + recent + '\\n' +
     '错题记录：' + mistakes + '\\n' +
@@ -1555,8 +1542,8 @@ function requestDynamicSkillQuestion() {
 
   const aiQuestion = consumePrefetchedSkillQuestion();
   if (aiQuestion) {
-    skillLevelIndex = typeof aiQuestion.level === 'number' ? aiQuestion.level : skillLevelIndex;
-    showSkillQuestion(aiQuestion, 'ai');
+    const targetLevel = skillLevelIndex;
+    showSkillQuestion({ ...aiQuestion, level: targetLevel, label: difficultyLabel(targetLevel) }, 'ai');
     return;
   }
 

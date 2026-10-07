@@ -247,7 +247,8 @@ chatForm.addEventListener('submit', async (event) => {
 });
 
 function escapeHtml(value) {
-  return value.replace(/[&<>'"]/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
+  const text = value == null ? '' : String(value);
+  return text.replace(/[&<>'"]/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', "'":'&#39;', '"':'&quot;' }[char]));
 }
 
 

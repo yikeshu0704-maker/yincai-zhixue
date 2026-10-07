@@ -1960,59 +1960,48 @@ function calculateLearningStreak() {
   return streak;
 }
 
-function renderDashboardTasks() {
-  const empty = document.getElementById('dashboard-task-empty');
-  const generated = document.getElementById('dashboard-task-generated');
-  if (!empty || !generated) return;
-  if (!profile) {
-    empty.hidden = false;
-    generated.innerHTML = '';
-    return;
+function buildTodayTaskState(){
+  if(!profile)return null;
+  const topic=profile.diagnosis?.priorities?.[0]?.name||profile.primaryTopic||profile.subject||'当前重点知识点';
+  const trainingCount=todayCompletedTasks();
+  const hasMistakes=getTodayMistakes().length>0||getPendingMistakeCount()>0;
+  const items=[
+    {id:'diagnosis',title:'完成一次学情诊断',note:'让 Agent 根据当前资料确定今天重点',done:!!profile.diagnosis,go:'analysis'},
+    {id:'training',title:topic+' · 自适应训练 5 题',note:'从基础到当前适合难度连续训练',done:trainingCount>=5,go:'skills'}
+  ];
+  if(hasMistakes){
+    items.push({id:'review',title:'复盘待复盘错题',note:getPendingMistakeCount()?'还有 '+getPendingMistakeCount()+' 道待复盘':'近期错题已全部复盘',done:getPendingMistakeCount()===0,go:'mistakes'});
   }
+  return {date:localDateKey(),items};
+}
 
-  const topic = profile.diagnosis?.priorities?.[0]?.name || profile.primaryTopic || profile.subject || '当前重点知识点';
-  const todayKey = localDateKey();
-  let state;
-  try { state = JSON.parse(localStorage.getItem(TASK_KEY) || 'null'); } catch (_) { state = null; }
+function renderDashboardTasks(){
+  const empty=document.getElementById('dashboard-task-empty');
+  const generated=document.getElementById('dashboard-task-generated');
+  if(!empty||!generated)return;
+  if(!profile){empty.hidden=false;generated.innerHTML='';return;}
 
-  if (!state || state.date !== todayKey || !Array.isArray(state.items)) {
-    state = {
-      date: todayKey,
-      items: [
-        { id:'diagnosis', title:'完成一次学情诊断', note:'让 Agent 根据当前资料确定今天重点', done:!!profile.diagnosis, go:'analysis' },
-        { id:'training', title:topic + ' · 自适应训练 5 题', note:'从基础到当前适合难度连续训练', done:todayCompletedTasks() >= 5, go:'skills' },
-        { id:'review', title:'复盘今天的错题', note:'完成至少 1 道错题复盘即可', done:false, go:'mistakes' }
-      ]
-    };
-  } else {
-    state.items[0].done = !!profile.diagnosis;
-    state.items[1].done = todayCompletedTasks() >= 5;
-  }
-  localStorage.setItem(TASK_KEY, JSON.stringify(state));
+  const state=buildTodayTaskState();
+  localStorage.setItem(TASK_KEY,JSON.stringify(state));
+  const doneCount=state.items.filter(item=>item.done).length;
+  const rate=Math.round(doneCount/state.items.length*100);
 
-  const doneCount = state.items.filter(item => item.done).length;
-  const rate = Math.round(doneCount / state.items.length * 100);
-  empty.hidden = true;
-  generated.innerHTML = state.items.map(item =>
-    '<div class="task-row ' + (item.done ? 'done' : '') + '">' +
-      '<button type="button" class="task-check" aria-label="' + escapeHtml(item.title) + '" data-task-toggle="' + item.id + '">' + (item.done ? '✓' : '') + '</button>' +
-      '<div class="task-row-main"><b>' + escapeHtml(item.title) + '</b><small>' + escapeHtml(item.note) + '</small></div>' +
-      '<button type="button" class="task-go" data-go="' + escapeHtml(item.go) + '">' + (item.done ? '回看' : '去做') + '</button>' +
+  empty.hidden=true;
+  generated.innerHTML=state.items.map(item=>
+    '<div class="task-row '+(item.done?'done':'')+'">'+
+    '<button type="button" class="task-check" aria-label="'+escapeHtml(item.title)+'" data-task-toggle="'+item.id+'">'+(item.done?'✓':'')+'</button>'+
+    '<div class="task-row-main"><b>'+escapeHtml(item.title)+'</b><small>'+escapeHtml(item.note)+'</small></div>'+
+    '<button type="button" class="task-go" data-go="'+escapeHtml(item.go)+'">'+(item.done?'回看':'去做')+'</button>'+
     '</div>'
   ).join('');
 
-  generated.querySelectorAll('[data-task-toggle]').forEach(button => button.addEventListener('click', () => {
-    const current = state.items.find(item => item.id === button.dataset.taskToggle);
-    if (!current) return;
-    if (current.id !== 'review') {
-      showPage(current.go);
-      return;
-    }
-    current.done = !current.done;
-    localStorage.setItem(TASK_KEY, JSON.stringify(state));
-    renderDashboardTasks();
-    refreshFirstUseStats();
+  generated.querySelectorAll('[data-task-toggle]').forEach(button=>button.addEventListener('click',()=>{
+    const current=state.items.find(item=>item.id===button.dataset.taskToggle);
+    if(current)showPage(current.go);
   }));
+
+  document.getElementById('task-count')?.replaceChildren(document.createTextNode(doneCount+' / '+state.items.length));
+  document.getElementById('task-rate')?.replaceChildren(document.createTextNode('完成率 '+rate+'%'));
 }
 
 function renderReport() {
@@ -2127,14 +2116,18 @@ function refreshFirstUseStats() {
 }refreshFirstUseStats();
 
 // 学习激励：完成度来自真实答题数据，不再写死。
-function todayCompletedTasks() {
-  const today = localDateKey();
-  return skillHistory.filter(item => (item.createdAt || '').slice(0, 10) === today).length;
+function todayCompletedTasks(){
+  const today=localDateKey();
+  return skillHistory.filter(item=>{
+    const d=new Date(item.createdAt||'');
+    return Number.isFinite(d.getTime())&&localDateKey(d)===today;
+  }).length;
 }
 
-function todayCompletePercent() {
-  const target = 5; // 每天默认 5 道高价值训练题
-  return Math.min(100, Math.round((todayCompletedTasks() / target) * 100));
+function todayCompletePercent(){
+  const state=buildTodayTaskState();
+  if(!state||!state.items.length)return 0;
+  return Math.round(state.items.filter(item=>item.done).length/state.items.length*100);
 }
 
 function buildLocalMotivation(complete, streak, mistakesCount) {
@@ -2179,41 +2172,52 @@ async function requestMotivationAgentIfReady(force = false) {
   }
 }
 
-async function requestMotivationAgent() {
-  const complete = todayCompletePercent() + '%';
-  const streak = Number(localStorage.getItem(STREAK_KEY) || 0);
-  const mistakesCount = Object.keys(mistakeData).length;
-  try {
-    const reason = await callAgent('motivation',
-      profileContext() + '\n' +
-      '今日完成度：' + complete + '（来自真实答题记录）。\n' +
-      '连续学习：' + streak + ' 天。\n' +
-      '待复盘错题：' + mistakesCount + ' 道。\n' +
-      '今天主要高优先级任务：根据当前学生情况判断。\n' +
-      '请判断今天应该继续、维持还是收尾，并给出最小必要任务。'
+function cleanMotivationNarrative(text){
+  return String(text||'').split(/\r?\n/).filter(line=>!/(今日完成度|连续学习|待复盘错题|当前掌握度|\d+%)/.test(line)).join('\n').trim();
+}
+
+async function requestMotivationAgent(){
+  const complete=todayCompletePercent();
+  const streak=calculateLearningStreak();
+  const mistakesCount=getPendingMistakeCount();
+  const trainingCount=todayCompletedTasks();
+  const mastery=profile?.skillMastery;
+
+  try{
+    const reason=await callAgent('motivation',
+      profileContext()+'\n【实时统计，以这些为准】\n'+
+      '今日任务完成度：'+complete+'%\n'+
+      '今日训练题数：'+trainingCount+'\n'+
+      '连续学习：'+streak+'天\n'+
+      '待复盘错题：'+mistakesCount+'道\n'+
+      '当前掌握度：'+(mastery==null?'待测':mastery+'%')+'\n'+
+      '请只给建议标题和行动建议，不要重复任何统计数字。'
     );
-    const aiTitle = reason.split('\n')[0] || reason;
-    motivationTitle.textContent = aiTitle;
-    motivationReason.textContent = reason;
-    motivationStatus.textContent = reason.startsWith('建议：收尾') ? '建议收尾' : 'AI已重新评估';
-    const dashboardTitle = document.getElementById('dashboard-motivation-title');
-    const dashboardReason = document.getElementById('dashboard-motivation-reason');
-    const dashboardStatus = document.getElementById('dashboard-motivation-status');
-    if (dashboardTitle) dashboardTitle.textContent = aiTitle;
-    if (dashboardReason) dashboardReason.textContent = reason;
-    if (dashboardStatus) dashboardStatus.textContent = reason.startsWith('建议：收尾') ? '建议收尾' : 'AI已重新评估';
-  } catch (error) {
-    // AI 失败时使用本地规则保底判断，并明确标识。
-    const local = buildLocalMotivation(complete, streak, mistakesCount);
-    motivationTitle.textContent = local.title;
-    motivationReason.textContent = local.reason + '（AI 暂时不可用：' + error.message + '）';
-    motivationStatus.textContent = '保底判断 · AI 不可用';
-    const dashboardTitle = document.getElementById('dashboard-motivation-title');
-    const dashboardReason = document.getElementById('dashboard-motivation-reason');
-    const dashboardStatus = document.getElementById('dashboard-motivation-status');
-    if (dashboardTitle) dashboardTitle.textContent = local.title;
-    if (dashboardReason) dashboardReason.textContent = local.reason;
-    if (dashboardStatus) dashboardStatus.textContent = '保底判断';
+    const raw=String(reason||'').trim();
+    const lines=raw.split(/\r?\n/).map(x=>x.trim()).filter(Boolean);
+    const aiTitle=lines.find(x=>/^建议[:：]/.test(x))||lines[0]||'建议：继续';
+    const narrative=cleanMotivationNarrative(lines.filter(x=>x!==aiTitle).join('\n'));
+    motivationTitle.textContent=aiTitle;
+    motivationReason.textContent=narrative||buildLocalMotivation(complete+'%',streak,mistakesCount).reason;
+    motivationStatus.textContent=/^建议[:：]收尾/.test(aiTitle)?'建议收尾':'AI已重新评估';
+
+    const dashTitle=document.getElementById('dashboard-motivation-title');
+    const dashReason=document.getElementById('dashboard-motivation-reason');
+    const dashStatus=document.getElementById('dashboard-motivation-status');
+    if(dashTitle)dashTitle.textContent=aiTitle;
+    if(dashReason)dashReason.textContent=motivationReason.textContent;
+    if(dashStatus)dashStatus.textContent=motivationStatus.textContent;
+  }catch(error){
+    const local=buildLocalMotivation(complete+'%',streak,mistakesCount);
+    motivationTitle.textContent=local.title;
+    motivationReason.textContent=local.reason+'（AI 暂时不可用）';
+    motivationStatus.textContent='保底判断 · AI 不可用';
+    const dashTitle=document.getElementById('dashboard-motivation-title');
+    const dashReason=document.getElementById('dashboard-motivation-reason');
+    const dashStatus=document.getElementById('dashboard-motivation-status');
+    if(dashTitle)dashTitle.textContent=local.title;
+    if(dashReason)dashReason.textContent=local.reason;
+    if(dashStatus)dashStatus.textContent='保底判断';
     throw error;
   }
 }
@@ -2395,8 +2399,9 @@ function bindOnboarding() {
 
   document.getElementById('clear-profile-btn')?.addEventListener('click', handleClearStudentData);
   document.getElementById('dashboard-motivation-btn')?.addEventListener('click', () => {
+    syncDerivedStudentStats();
     showPage('motivation');
-    requestMotivationAgentIfReady();
+    requestMotivationAgentIfReady(true);
   });
 }
 

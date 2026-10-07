@@ -187,7 +187,7 @@ async function runColdJourney(browser, round) {
   await assertPage(page,'qa');
   await page.locator('#chat-input').fill('帮我判断卡点');
   await page.locator('#chat-form').dispatchEvent('submit');
-  await page.getByText('好的，我先判断你的卡点，再一步一步引导。').waitFor({ state:'visible', timeout:1500 });
+  await page.locator('#chat-log').getByText('好的，我先判断你的卡点，再一步一步引导。').waitFor({ state:'visible', timeout:1500 });
   if ((await page.locator('#tutor-question-text').textContent()).includes('AB = AC')) throw new Error('答疑区残留固定几何示例');
   if ((await page.locator('#chat-log').textContent()).includes('**')) throw new Error('AI答疑仍显示原始Markdown星号');
   await assertPage(page,'report');

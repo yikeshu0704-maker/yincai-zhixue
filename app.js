@@ -933,13 +933,22 @@ function saveMistakes() {
 }
 
 function hydrateMistakes() {
-  const items = getStoredMistakes();
-  mistakeData = {};
-  items.forEach(item => { mistakeData[item.id] = item; });
-  currentMistake = Object.keys(mistakeData)[0] || null;
+  const items=getStoredMistakes();
+  mistakeData={};
+  items.forEach(item=>{mistakeData[item.id]=item;});
+  const firstPending=items.find(item=>!item.reviewedAt);
+  currentMistake=firstPending?.id||items[0]?.id||null;
+}
+function getPendingMistakeCount(){return Object.values(mistakeData).filter(item=>!item.reviewedAt).length;}
+function getReviewedMistakeCount(){return Object.values(mistakeData).filter(item=>!!item.reviewedAt).length;}
+function getTodayMistakes(){
+  const today=localDateKey();
+  return Object.values(mistakeData).filter(item=>{
+    const d=new Date(item.createdAt||'');
+    return Number.isFinite(d.getTime())&&localDateKey(d)===today;
+  });
 }
 hydrateMistakes();
-
 
 function renderMistake() {
   const data = currentMistake ? mistakeData[currentMistake] : null;
@@ -1065,21 +1074,18 @@ document.getElementById('review-next')?.addEventListener('click', async () => {
   if (!data) return;
 
   if (reviewStep === 5) {
-    const taskState = (() => {
-      try { return JSON.parse(localStorage.getItem(TASK_KEY) || 'null'); } catch (_) { return null; }
-    })();
-    const reviewTask = taskState?.items?.find(item => item.id === 'review');
-    if (reviewTask) {
-      reviewTask.done = true;
-      localStorage.setItem(TASK_KEY, JSON.stringify(taskState));
+    const item=mistakeData[currentMistake];
+    if(item){
+      item.reviewedAt=new Date().toISOString();
+      saveMistakes();
+      renderMistakeListFromStore();
     }
     syncDerivedStudentStats();
-    showToast('复盘完成，已进入再测队列');
-    reviewStep = 1;
+    showToast('这道错题已完成复盘，进入再测观察');
+    reviewStep=1;
     renderMistake();
     return;
   }
-
   reviewStep += 1;
   renderMistake();
   // 阶段推进不再重复调用 AI；错因分析由「AI分析这道错题」按钮按需触发一次。
@@ -2394,23 +2400,31 @@ function bindOnboarding() {
   });
 }
 
-function renderMistakeListFromStore() {
-  const list = document.getElementById('mistake-list');
-  const count = Object.keys(mistakeData).length;
-  document.getElementById('mistake-stat-pending')?.replaceChildren(document.createTextNode(String(count)));
-  document.getElementById('mistake-stat-repeat')?.replaceChildren(document.createTextNode('0'));
-  document.getElementById('mistake-stat-retest')?.replaceChildren(document.createTextNode('0'));
-  if (!list) return;
-  const items = Object.values(mistakeData);
-  if (!items.length) {
-    list.innerHTML = '<div class="empty-state"><b>你的错题本还是空的</b><p>先去技能训练或答题。发生真实错误后，错题会自动进入这里。</p><button class="ghost-btn" data-go="skills">去做第一道题 →</button></div>';
-    list.querySelector('[data-go]')?.addEventListener('click', () => showPage('skills'));
+function renderMistakeListFromStore(){
+  const list=document.getElementById('mistake-list');
+  const items=Object.values(mistakeData);
+  const pending=getPendingMistakeCount();
+  const reviewed=getReviewedMistakeCount();
+  const countMap=new Map();
+  items.forEach(item=>{const k=normalizeQuestionKey(item.question);if(k)countMap.set(k,(countMap.get(k)||0)+1);});
+  const repeated=[...countMap.values()].filter(n=>n>1).reduce((s,n)=>s+n-1,0);
+  document.getElementById('mistake-stat-pending')?.replaceChildren(document.createTextNode(String(pending)));
+  document.getElementById('mistake-stat-repeat')?.replaceChildren(document.createTextNode(String(repeated)));
+  document.getElementById('mistake-stat-retest')?.replaceChildren(document.createTextNode(String(reviewed)));
+  if(!list)return;
+  if(!items.length){
+    list.innerHTML='<div class="empty-state"><b>你的错题本还是空的</b><p>先去技能训练或答疑。发生真实错误后，错题会自动进入这里。</p><button class="ghost-btn" data-go="skills">去做第一道题 →</button></div>';
+    list.querySelector('[data-go]')?.addEventListener('click',()=>showPage('skills'));
     return;
   }
-  list.innerHTML = items.map(item => '<button class="mistake-item" data-mistake="' + item.id + '"><div><span class="pill danger">待复盘</span><small>' + escapeHtml(item.createdAt || '') + '</small></div><b>' + escapeHtml(item.title) + '</b><span>' + escapeHtml(item.type) + '</span></button>').join('');
-  list.querySelectorAll('.mistake-item').forEach(item => item.addEventListener('click', () => {
-    currentMistake = item.dataset.mistake;
-    reviewStep = 1;
+  list.innerHTML=items.slice().sort((a,b)=>Number(!!a.reviewedAt)-Number(!!b.reviewedAt)).map(item=>{
+    const reviewed=!!item.reviewedAt;
+    return '<button class="mistake-item'+(reviewed?' reviewed':'')+'" data-mistake="'+escapeHtml(item.id)+'"><div><span class="pill '+(reviewed?'success':'danger')+'">'+(reviewed?'已复盘':'待复盘')+'</span><small>'+escapeHtml(item.createdAt||'')+'</small></div><b>'+escapeHtml(item.title)+'</b><span>'+escapeHtml(item.type)+'</span></button>';
+  }).join('');
+  list.querySelectorAll('.mistake-item').forEach(item=>item.addEventListener('click',()=>{
+    currentMistake=item.dataset.mistake;
+    reviewStep=1;
+    selectedReviewAnswer='';
     renderMistake();
   }));
 }

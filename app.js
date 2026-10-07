@@ -256,6 +256,9 @@ function formatQuestionText(value) {
   text = text
     .replace(/\\textless\s*\{\}/g, '<')
     .replace(/\\textgreater\s*\{\}/g, '>')
+    .replace(/\\textless/g, '<')
+    .replace(/\\textgreater/g, '>')
+    .replace(/\\ne/g, '≠')
     .replace(/\\leqslant|\\leq/g, '≤')
     .replace(/\\geqslant|\\geq/g, '≥')
     .replace(/\\neq/g, '≠')

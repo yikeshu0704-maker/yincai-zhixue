@@ -111,7 +111,7 @@ async function runColdJourney(browser, round) {
 
   const css = await page.locator('link[rel="stylesheet"]').getAttribute('href');
   const js = await page.locator('script[src*="app.js"]').getAttribute('src');
-  if (!css?.includes('stable-v4') || !js?.includes('stable-v4')) {
+  if (!css?.includes('stable-v5') || !js?.includes('stable-v4')) {
     throw new Error('第' + round + '轮缓存破坏版本号未更新');
   }
 
@@ -187,6 +187,39 @@ async function runColdJourney(browser, round) {
   await page.locator('#chat-input').fill('帮我判断卡点');
   await page.locator('#chat-form').dispatchEvent('submit');
   await page.getByText('好的，我先判断你的卡点，再一步一步引导。').waitFor({ state:'visible', timeout:1500 });
+
+  // Clear-data UX: opening the editor shows existing data; clicking clear wipes everything.
+  await page.locator('#edit-profile-btn').click();
+  if ((await page.locator('#profile-name').inputValue()) !== profile.name + round) {
+    throw new Error('编辑学情时没有读取已保存学生数据');
+  }
+  page.once('dialog', async dialog => {
+    if (!/清空全部学情数据/.test(dialog.message())) {
+      throw new Error('清空确认文案不正确');
+    }
+    await dialog.accept();
+  });
+  await page.locator('#clear-profile-btn').click();
+  await page.waitForFunction(() => localStorage.getItem('yincaiProfile') === null, { timeout: 1500 });
+
+  await page.reload({ waitUntil:'networkidle' });
+  await page.locator('#onboarding-backdrop').waitFor({ state:'visible', timeout:1000 });
+  const emptyName = await page.locator('#profile-name').inputValue();
+  const emptyGoal = await page.locator('#profile-goal').inputValue();
+  if (emptyName || emptyGoal) throw new Error('清空后重新打开学情表单仍残留旧数据');
+
+  // Restore the test profile so the normal persistence loop can still be validated.
+  await page.locator('#profile-name').fill(profile.name + round);
+  await page.locator('#profile-grade').fill(profile.grade);
+  await page.locator('#profile-subject').fill(profile.subject);
+  await page.locator('#profile-score').fill(profile.score);
+  await page.locator('#onboarding-next').click();
+  await page.locator('#profile-goal').fill(profile.goal);
+  await page.locator('#profile-days').fill(profile.days);
+  await page.locator('#profile-hours').fill(profile.hours);
+  await page.locator('#profile-state').fill(profile.state);
+  await page.locator('#onboarding-form').evaluate(form => form.requestSubmit());
+  await page.waitForFunction(() => document.querySelector('#onboarding-backdrop')?.classList.contains('show') === false);
 
   // Persistence: 10 reloads, with navigation checks each time.
   for (let reload = 1; reload <= 10; reload++) {

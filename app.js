@@ -28,14 +28,20 @@ const PROFILE_KEY = 'yincaiProfile';
 const TASK_KEY = 'yincaiTasks';
 const STREAK_KEY = 'yincaiStreak';
 const DATA_VERSION = '2026-10-07-question-bank-3000-v2';
+const PROFILE_RESET_VERSION = '2026-10-07-profile-reset-v1';
 
 /*
- * 数据版本只用于记录当前前端结构版本。
- * 绝不因为代码更新、题库更新或部署更新删除学生画像、错题、训练记录。
- * 需要清理数据时必须由用户显式执行。
+ * 仅执行一次用户明确要求的“清空当前旧学情”。
+ * 后续代码版本更新不会自动删除学生数据；今后清空必须通过“清空学情数据”按钮。
  */
 if (localStorage.getItem('yincaiDataVersion') !== DATA_VERSION) {
   localStorage.setItem('yincaiDataVersion', DATA_VERSION);
+}
+if (localStorage.getItem('yincaiProfileResetVersion') !== PROFILE_RESET_VERSION) {
+  ['yincaiProfile', 'yincaiTasks', 'yincaiStreak', 'yincaiMistakes', 'yincaiSkillHistory'].forEach((key) => {
+    localStorage.removeItem(key);
+  });
+  localStorage.setItem('yincaiProfileResetVersion', PROFILE_RESET_VERSION);
 }
 
 let profile = null;
@@ -52,6 +58,40 @@ function loadProfile() {
 function saveProfile(nextProfile) {
   profile = nextProfile;
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+}
+
+function clearStudentData() {
+  [
+    PROFILE_KEY,
+    TASK_KEY,
+    STREAK_KEY,
+    'yincaiMistakes',
+    'yincaiSkillHistory',
+    'yincaiDataVersion'
+  ].forEach((key) => localStorage.removeItem(key));
+
+  localStorage.setItem('yincaiDataVersion', DATA_VERSION);
+  localStorage.setItem('yincaiProfileResetVersion', PROFILE_RESET_VERSION);
+}
+
+function resetOnboardingForm() {
+  const form = document.getElementById('onboarding-form');
+  if (form) form.reset();
+  document.querySelectorAll('[data-onboarding-page]').forEach(page => page.classList.toggle('active', page.dataset.onboardingPage === '1'));
+  const step = document.getElementById('onboarding-step');
+  const title = document.getElementById('onboarding-title');
+  const copy = document.getElementById('onboarding-copy');
+  if (step) step.textContent = '第 1 / 2 步';
+  if (title) title.textContent = '先告诉我，你是谁';
+  if (copy) copy.textContent = '这些信息会成为你的第一份学习画像。可以随时修改。';
+}
+
+function handleClearStudentData() {
+  const confirmed = window.confirm('确定清空全部学情数据吗？\n\n将删除学生画像、诊断结果、训练记录、错题和连续学习记录。此操作不可撤销。');
+  if (!confirmed) return;
+
+  clearStudentData();
+  window.location.reload();
 }
 
 function profileContext() {
@@ -73,6 +113,7 @@ function profileContext() {
 
 function openOnboarding() {
   const modal = document.getElementById('onboarding-backdrop');
+  if (!profile) resetOnboardingForm();
   if (modal) modal.classList.add('show');
 }
 
@@ -1979,6 +2020,7 @@ function bindOnboarding() {
   });
 
   document.getElementById('edit-profile-btn')?.addEventListener('click', () => {
+    resetOnboardingForm();
     if (profile) {
       for (const [id, key] of [
         ['profile-name','name'],['profile-grade','grade'],['profile-subject','subject'],
@@ -1991,7 +2033,12 @@ function bindOnboarding() {
     }
     openOnboarding();
   });
-  document.getElementById('dashboard-profile-btn')?.addEventListener('click', openOnboarding);
+
+  document.getElementById('clear-profile-btn')?.addEventListener('click', handleClearStudentData);
+  document.getElementById('dashboard-profile-btn')?.addEventListener('click', () => {
+    resetOnboardingForm();
+    openOnboarding();
+  });
 }
 
 function renderMistakeListFromStore() {

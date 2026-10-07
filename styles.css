@@ -545,3 +545,21 @@ button { cursor: pointer; }
 .skill-feedback-block.ai-feedback-pending{opacity:.86}
 .skill-feedback-block.ai-feedback span{color:#9a6400}
 .skill-feedback-block.ai-feedback p{margin-bottom:0}
+
+
+.danger-outline-btn{
+  border:1px solid #efb4b8;
+  background:#fff7f7;
+  color:#b84f57;
+  border-radius:10px;
+  padding:10px 14px;
+  cursor:pointer;
+  font-size:12px;
+  font-weight:700;
+}
+.danger-outline-btn:hover{background:#fff0f1}
+@media(max-width:720px){
+  .onboarding-actions{flex-wrap:wrap}
+  .onboarding-actions .primary-btn,
+  .onboarding-actions .danger-outline-btn{flex:1}
+}

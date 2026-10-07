@@ -1569,7 +1569,12 @@ function renderSkillQuestion() {
   if (reviewBanner) {
     reviewBanner.hidden = !activeReviewTraining;
     if (activeReviewTraining) {
-      reviewBanner.innerHTML='<b>错题针对训练</b><p>这道题用于验证：'+escapeHtml(mistakeData[activeReviewTraining.mistakeId]?.knowledge || currentSkillTopic())+'</p>';
+      reviewBanner.innerHTML='<b>错题针对训练</b><p>这道题用于验证：'+escapeHtml(mistakeData[activeReviewTraining.mistakeId]?.knowledge || currentSkillTopic())+'</p><button type="button" class="ghost-btn" id="review-training-back">← 返回错题复盘</button>';
+      document.getElementById('review-training-back')?.addEventListener('click',()=>{
+        activeReviewTraining=null;
+        showPage('mistakes');
+        renderMistake();
+      });
     }
   }
   const imageName=document.getElementById('skill-answer-image-name');

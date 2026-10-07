@@ -1684,7 +1684,7 @@ function renderDashboardTasks() {
     localStorage.setItem(TASK_KEY, JSON.stringify(state));
     renderDashboardTasks();
     refreshFirstUseStats();
-  });
+  }));
 }
 
 function renderReport() {

@@ -135,6 +135,13 @@ async function runColdJourney(browser, round) {
     await assertPage(page,id);
   }
 
+  await assertPage(page,'dashboard');
+  await page.locator('#dashboard-motivation-btn').click();
+  await page.locator('#motivation').waitFor({ state:'visible', timeout:1000 });
+  if (!(await page.locator('#motivation').locator('text=学习激励 Agent').isVisible())) {
+    throw new Error('首页没有可见的学习激励入口');
+  }
+
   // Test actual in-page jump buttons in addition to sidebar navigation.
   await assertPage(page,'dashboard');
   await page.locator('#dashboard button[data-go="plan"]').first().click();

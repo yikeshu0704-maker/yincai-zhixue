@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>因材智学 - 个性化学习智能体</title>
-  <link rel="stylesheet" href="styles.css?v=20261007-stable-v5" />
+  <link rel="stylesheet" href="styles.css?v=20261007-stable-v6" />
 </head>
 <body>
   <div class="app-shell">
@@ -66,7 +66,16 @@
           </div>
         </div>
 
-        <div class="ai-recommendation panel"><div class="ai-icon">AI</div><div><span class="eyebrow">AI 今日建议</span><h3 id="dashboard-ai-title">完成首次学情设置后，我会给你第一条建议。</h3><p id="dashboard-ai-copy">你的学习数据将从你的真实填写、测试结果和后续答题记录开始累积。</p></div><button class="text-btn" id="dashboard-profile-btn">先填写学情 →</button></div>
+        <div class="ai-recommendation panel motivation-entry"><div class="ai-icon">AI</div><div><span class="eyebrow">AI 今日建议 · 学习激励</span><h3 id="dashboard-ai-title">完成首次学习后，我会给你今天最合适的建议。</h3><p id="dashboard-ai-copy">系统不会只催你多学，而是根据完成度、连续学习、错题和掌握度判断今天该继续、维持还是收尾。</p></div><button class="text-btn" id="dashboard-motivation-btn">查看今日激励 →</button></div>
+
+        <div class="motivation-dashboard-card panel">
+          <div>
+            <span class="eyebrow">今天的学习激励</span>
+            <h3 id="dashboard-motivation-title">完成第一次真实学习后，这里会告诉你今天该继续、维持还是收尾。</h3>
+            <p id="dashboard-motivation-reason">现在还没有足够的学习记录。先完成一道训练题，系统就会开始评估。</p>
+          </div>
+          <span class="motivation-status" id="dashboard-motivation-status">等待学习</span>
+        </div>
 
         <div class="stats-grid">
           <article class="stat-card"><span>今日任务</span><strong id="task-count">0 / 0</strong><small id="task-rate">完成率 0%</small></article>
@@ -592,6 +601,6 @@
   <script src="data/math-junior-cjeval-2.js"></script>
   <script src="data/math-junior-cjeval-3.js"></script>
   <script src="data/math-junior-cjeval-4.js"></script>
-  <script src="app.js?v=20261007-stable-v5"></script>
+  <script src="app.js?v=20261007-stable-v6"></script>
 </body>
 </html>

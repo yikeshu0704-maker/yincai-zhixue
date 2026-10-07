@@ -579,3 +579,22 @@ button { cursor: pointer; }
 .task-row-main{flex:1;display:flex;flex-direction:column;gap:3px}
 .task-row-main small{color:var(--muted);line-height:1.4}
 .task-go{border:0;background:#eef0ff;color:#4d57d9;border-radius:8px;padding:7px 10px;cursor:pointer;font-weight:700;font-size:11px}
+
+.motivation-entry{cursor:pointer}
+.motivation-entry .text-btn{white-space:nowrap}
+.motivation-dashboard-card{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+  margin:18px 0;
+  padding:18px 20px;
+  border:1px solid #dfe4ff;
+  background:linear-gradient(135deg,#f8f9ff,#ffffff);
+}
+.motivation-dashboard-card h3{margin:5px 0 6px}
+.motivation-dashboard-card p{margin:0;max-width:900px;line-height:1.6;color:var(--muted)}
+.motivation-dashboard-card .motivation-status{flex:0 0 auto}
+@media(max-width:720px){
+  .motivation-dashboard-card{align-items:flex-start;flex-direction:column}
+}

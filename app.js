@@ -2026,6 +2026,9 @@ function refreshFirstUseStats() {
 
   renderDashboardTasks();
   renderReport();
+  if (profile) {
+    void requestMotivationAgentIfReady(false);
+  }
 }refreshFirstUseStats();
 
 // 学习激励：完成度来自真实答题数据，不再写死。
@@ -2059,6 +2062,28 @@ function buildLocalMotivation(complete, streak, mistakesCount) {
   };
 }
 
+async function requestMotivationAgentIfReady(force = false) {
+  if (!profile) return;
+  const title = document.getElementById('dashboard-motivation-title');
+  const reasonNode = document.getElementById('dashboard-motivation-reason');
+  const statusNode = document.getElementById('dashboard-motivation-status');
+  const signature = String(todayCompletePercent()) + '|' + Object.keys(mistakeData).length + '|' + String(skillAttempts) + '|' + String(profile.skillMastery || 0);
+
+  if (!force && window.__lastMotivationSignature === signature) return;
+  window.__lastMotivationSignature = signature;
+
+  const local = buildLocalMotivation(todayCompletePercent() + '%', calculateLearningStreak(), Object.keys(mistakeData).length);
+  if (title) title.textContent = local.title;
+  if (reasonNode) reasonNode.textContent = local.reason;
+  if (statusNode) statusNode.textContent = local.title.replace('建议：','');
+
+  try {
+    await requestMotivationAgent();
+  } catch (_) {
+    // requestMotivationAgent 已经提供本地保底结果。
+  }
+}
+
 async function requestMotivationAgent() {
   const complete = todayCompletePercent() + '%';
   const streak = Number(localStorage.getItem(STREAK_KEY) || 0);
@@ -2072,15 +2097,28 @@ async function requestMotivationAgent() {
       '今天主要高优先级任务：根据当前学生情况判断。\n' +
       '请判断今天应该继续、维持还是收尾，并给出最小必要任务。'
     );
-    motivationTitle.textContent = reason.split('\n')[0] || reason;
+    const aiTitle = reason.split('\n')[0] || reason;
+    motivationTitle.textContent = aiTitle;
     motivationReason.textContent = reason;
     motivationStatus.textContent = reason.startsWith('建议：收尾') ? '建议收尾' : 'AI已重新评估';
+    const dashboardTitle = document.getElementById('dashboard-motivation-title');
+    const dashboardReason = document.getElementById('dashboard-motivation-reason');
+    const dashboardStatus = document.getElementById('dashboard-motivation-status');
+    if (dashboardTitle) dashboardTitle.textContent = aiTitle;
+    if (dashboardReason) dashboardReason.textContent = reason;
+    if (dashboardStatus) dashboardStatus.textContent = reason.startsWith('建议：收尾') ? '建议收尾' : 'AI已重新评估';
   } catch (error) {
     // AI 失败时使用本地规则保底判断，并明确标识。
     const local = buildLocalMotivation(complete, streak, mistakesCount);
     motivationTitle.textContent = local.title;
     motivationReason.textContent = local.reason + '（AI 暂时不可用：' + error.message + '）';
     motivationStatus.textContent = '保底判断 · AI 不可用';
+    const dashboardTitle = document.getElementById('dashboard-motivation-title');
+    const dashboardReason = document.getElementById('dashboard-motivation-reason');
+    const dashboardStatus = document.getElementById('dashboard-motivation-status');
+    if (dashboardTitle) dashboardTitle.textContent = local.title;
+    if (dashboardReason) dashboardReason.textContent = local.reason;
+    if (dashboardStatus) dashboardStatus.textContent = '保底判断';
     throw error;
   }
 }
@@ -2090,6 +2128,7 @@ document.getElementById('finish-one-task')?.addEventListener('click', async () =
   refreshFirstUseStats();
   try {
     await requestMotivationAgent();
+    await requestMotivationAgentIfReady(true);
     motivationStatus.classList.add('done');
     showToast('学习激励 Agent 已重新评估：今天可以收尾或维持');
   } catch (error) {
@@ -2100,6 +2139,7 @@ document.getElementById('finish-one-task')?.addEventListener('click', async () =
 document.getElementById('reduce-load')?.addEventListener('click', async () => {
   try {
     await requestMotivationAgent();
+    await requestMotivationAgentIfReady(true);
     showToast('AI 已重新安排今天的负担');
   } catch (error) {
     showToast('学习负荷分析失败');
@@ -2259,9 +2299,9 @@ function bindOnboarding() {
   });
 
   document.getElementById('clear-profile-btn')?.addEventListener('click', handleClearStudentData);
-  document.getElementById('dashboard-profile-btn')?.addEventListener('click', () => {
-    resetOnboardingForm();
-    openOnboarding();
+  document.getElementById('dashboard-motivation-btn')?.addEventListener('click', () => {
+    showPage('motivation');
+    requestMotivationAgentIfReady();
   });
 }
 

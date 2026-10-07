@@ -241,7 +241,13 @@ function responseFor(agent) {
   const historyCount = await page.locator('#skill-history-list .skill-history-item').count();
   if (historyCount !== 1) throw new Error('第一题没有进入题目历史');
 
-  // 验证错题链路：用“这题我不会”走稳定的错题沉淀路径，避免测试依赖某个选项恰好为错。
+  // 进入第二题后用“这题我不会”走稳定的错题沉淀路径，避免测试依赖某个选项恰好为错。
+  await page.locator('#skill-next').click();
+  await page.waitForFunction(() => {
+    const submit = document.getElementById('skill-submit');
+    return !!submit && !submit.disabled &&
+      document.getElementById('skill-question-no')?.textContent?.trim() === '2';
+  }, { timeout: 1000 });
   await page.locator('#skill-skip').click();
   await page.waitForFunction(() => {
     const panel = document.getElementById('skills');

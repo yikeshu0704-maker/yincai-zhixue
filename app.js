@@ -1,4 +1,4 @@
-const API_ORIGIN = 'http://127.0.0.1:8080';
+const API_ORIGIN = window.YincaiConfig?.apiOrigin || 'http://127.0.0.1:8080';
 const CHAT_API_URL = API_ORIGIN + '/api/chat';
 const AGENT_API_URL = API_ORIGIN + '/api/agent';
 const HEALTH_API_URL = API_ORIGIN + '/api/health';
@@ -678,7 +678,7 @@ generatePlanButton?.addEventListener('click', async () => {
       '剩余天数：' + days + ' 天。\\n' +
       '每天可学习：' + hours + ' 小时（每天约 ' + minutes + ' 分钟）。\\n' +
       '请严格针对这名学生的分数、目标差距、薄弱知识点与时间预算生成个性化路径，不要使用通用模板。',
-      60000
+      25000
     );
     const aiPlan = parseAgentJson(aiRaw);
     if (!aiPlan?.weeks?.length) throw new Error('AI 返回的计划缺少阶段内容');
@@ -1105,9 +1105,27 @@ function parseSkillQuestion(raw) {
   if(!parsed||!parsed.question||!parsed.options||!parsed.answer)return null;
   if(!['A','B','C','D'].every(k=>parsed.options[k]))return null;
   if(!['A','B','C','D'].includes(parsed.answer))return null;
-  const text=(parsed.question+' '+(parsed.explanation||'')).toLowerCase();
-  if(parsed.level==='变式题'&&!/(变式|迁移|反推|改变|不同|多解|情境|综合|证明)/.test(text))return null;
-  return {level:parsed.level||'综合题',label:parsed.label||'综合应用',question:parsed.question,options:parsed.options,answer:parsed.answer,explanation:parsed.explanation||''};
+
+  const levelMap={
+    '基础题':0,
+    '中等题':1,
+    '困难题':2,
+    '拔尖题':3,
+    '综合题':2,
+    '变式题':3
+  };
+  const rawLevel=String(parsed.level||'中等题');
+  const level=levelMap[rawLevel] ?? 1;
+  const label=parsed.label || ['基础训练','中等应用','综合应用','迁移变式'][level];
+
+  return {
+    level,
+    label,
+    question:parsed.question,
+    options:parsed.options,
+    answer:parsed.answer,
+    explanation:parsed.explanation||''
+  };
 }
 
 function renderSkillQuestion() {
@@ -1178,10 +1196,36 @@ function renderSkillQuestion() {
   if(submit)submit.disabled=skillAnswered||skillLoading;
   if(skip)skip.disabled=skillAnswered||skillLoading;
   if(nextButton){
-    nextButton.hidden=!skillAnswered;
-    nextButton.disabled=skillLoading;
-    nextButton.textContent=skillLoading?'正在出题…':'下一题';
+    if(skillAnswered){
+      nextButton.hidden=false;
+      nextButton.removeAttribute('hidden');
+      nextButton.disabled=false;
+      nextButton.style.removeProperty('display');
+      nextButton.textContent='下一题';
+    }else{
+      nextButton.hidden=true;
+      nextButton.setAttribute('hidden','');
+      nextButton.disabled=skillLoading;
+      nextButton.textContent=skillLoading?'正在出题…':'下一题';
+    }
   }
+
+  const skillPanel=document.getElementById('skills');
+  if(skillPanel){
+    skillPanel.dataset.skillState=skillAnswered?'answered':'question';
+  }
+}
+
+function forceSkillAnsweredUI(){
+  const nextButton=document.getElementById('skill-next');
+  const skillPanel=document.getElementById('skills');
+  if(!nextButton || !dynamicSkillQuestion || !skillAnswered) return;
+  nextButton.hidden=false;
+  nextButton.removeAttribute('hidden');
+  nextButton.disabled=false;
+  nextButton.style.removeProperty('display');
+  nextButton.textContent='下一题';
+  if(skillPanel) skillPanel.dataset.skillState='answered';
 }
 
 async function generateAISkillQuestion() {
@@ -1333,10 +1377,10 @@ function evaluateSkillAnswer(correct){
   const q=dynamicSkillQuestion;
   if(!q)return;
   const chosen=selectedSkillOption;
-  updateSkillMastery(correct);
-  saveSkillAttempt(q,chosen,correct,false);
   skillAnswered=true;
   skillAnswerCorrect=correct;
+  updateSkillMastery(correct);
+  saveSkillAttempt(q,chosen,correct,false);
 
   document.getElementById('skill-result-title').textContent=correct
     ? '本题答对 · 回看后再进入下一题'
@@ -1351,12 +1395,8 @@ function evaluateSkillAnswer(correct){
         : ('正确答案是 '+q.answer+'。'+buildLocalMistakeFeedback(q,chosen).reason)) + '</p>';
   }
   renderSkillQuestion();
-  const nextButton=document.getElementById('skill-next');
-  if (nextButton) {
-    nextButton.hidden=false;
-    nextButton.disabled=false;
-    nextButton.textContent='下一题';
-  }
+  forceSkillAnsweredUI();
+  queueMicrotask(forceSkillAnsweredUI);
   renderSkillHistory();
 }
 
@@ -1456,6 +1496,7 @@ document.getElementById('skill-submit')?.addEventListener('click',async()=>{
   }
 
   evaluateSkillAnswer(correct);
+  forceSkillAnsweredUI();
 
   if(!correct&&mistakeId){
     void analyzeSkillMistake(q,chosen,mistakeId);

@@ -118,6 +118,42 @@ function responseFor(agent) {
   const bankText = (await page.locator('#skill-bank-count').textContent()).trim();
   if (bankText !== '3000 道初中题') throw new Error('题库数量显示错误：' + bankText);
 
+  const bankAudit = await page.evaluate(() => {
+    const raw = Array.isArray(window.YINCaiJuniorHighMathBank) ? window.YINCaiJuniorHighMathBank : [];
+    const seenIds = new Set();
+    const seenQuestions = new Set();
+    const levels = [0, 0, 0, 0];
+    let duplicateId = '';
+    let duplicateQuestion = '';
+
+    for (const q of raw) {
+      const id = String(q.id || '');
+      const question = String(q.question || '').replace(/\s+/g, '');
+      if (seenIds.has(id) && !duplicateId) duplicateId = id;
+      if (seenQuestions.has(question) && !duplicateQuestion) duplicateQuestion = id;
+      seenIds.add(id);
+      seenQuestions.add(question);
+
+      const isCJEval = q.sourceDataset === 'CJEval';
+      const level = isCJEval
+        ? Math.max(0, Math.min(3, Number(q.difficulty || 0)))
+        : Math.max(0, Math.min(3, Number(q.difficulty || 1) - 1));
+      levels[level] += 1;
+    }
+
+    return { count: raw.length, levels, duplicateId, duplicateQuestion };
+  });
+
+  if (bankAudit.count !== 3000) {
+    throw new Error('题库原始题数不是3000：' + bankAudit.count);
+  }
+  if (bankAudit.duplicateId || bankAudit.duplicateQuestion) {
+    throw new Error('题库存在重复题：' + (bankAudit.duplicateId || bankAudit.duplicateQuestion));
+  }
+  if (bankAudit.levels.some(n => n === 0)) {
+    throw new Error('四级难度不是全部存在：' + JSON.stringify(bankAudit.levels));
+  }
+
   for (const id of ['dashboard', 'analysis', 'plan', 'qa', 'skills', 'mistakes', 'report', 'motivation']) {
     await page.locator('.nav-item[data-page="' + id + '"]').click();
     const active = await page.locator('#' + id).evaluate(node => node.classList.contains('active-page'));
@@ -149,7 +185,10 @@ function responseFor(agent) {
 
   await page.locator('.nav-item[data-page="skills"]').click();
   await page.locator('#skill-next').click();
-  await page.waitForTimeout(350);
+  await page.waitForFunction(() => {
+    const submit = document.getElementById('skill-submit');
+    return !!submit && !submit.disabled;
+  }, { timeout: 2500 });
   if (!(await page.locator('#skill-options button').count())) {
     throw new Error('点击“开始训练”后没有立即生成题目');
   }
@@ -164,14 +203,21 @@ function responseFor(agent) {
     await page.locator('#skill-free-answer').fill('__smoke_first__');
   }
   await page.locator('#skill-submit').click();
-  await page.locator('#skill-next').waitFor({ state: 'visible', timeout: 1500 });
+  await page.waitForFunction(() => {
+    const button = document.getElementById('skill-next');
+    const panel = document.getElementById('skills');
+    return !!button && button.hidden === false && !button.hasAttribute('hidden')
+      && panel?.dataset.skillState === 'answered';
+  }, { timeout: 2500 });
 
   if (!(await page.locator('#skill-question-text').textContent()).includes(firstQuestion)) {
     throw new Error('提交后上一题没有保留，页面自动跳题了');
   }
 
-  if (await page.locator('#skill-next').getAttribute('hidden') !== null) {
-    throw new Error('提交后没有出现“下一题”按钮');
+  if ((await page.locator('#skill-next').getAttribute('hidden')) !== null
+      || !(await page.locator('#skill-next').isEnabled())
+      || (await page.locator('#skills').getAttribute('data-skill-state')) !== 'answered') {
+    throw new Error('提交后“下一题”状态没有正确恢复');
   }
 
   const historyCount = await page.locator('#skill-history-list .skill-history-item').count();
@@ -189,7 +235,10 @@ function responseFor(agent) {
     await page.locator('#skill-free-answer').fill('__smoke_second__');
   }
   await page.locator('#skill-submit').click();
-  await page.waitForTimeout(250);
+  await page.waitForFunction(() => {
+    const panel = document.getElementById('skills');
+    return panel?.dataset.skillState === 'answered';
+  }, { timeout: 1500 });
 
   const mistakeCount = Number((await page.locator('#mistake-stat-pending').textContent()).trim());
   if (mistakeCount < 1) throw new Error('答错后没有进入错题本，当前数量：' + mistakeCount);

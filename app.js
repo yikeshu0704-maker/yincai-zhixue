@@ -1953,7 +1953,7 @@ function calculateLearningStreak() {
   const dates = new Set(skillHistory.map(item => (item.createdAt || '').slice(0, 10)).filter(Boolean));
   let streak = 0;
   let day = new Date();
-  while (dates.has(day.toISOString().slice(0, 10))) {
+  while (dates.has(localDateKey(day))) {
     streak += 1;
     day = new Date(day.getTime() - 86400000);
   }

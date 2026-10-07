@@ -111,7 +111,7 @@ async function runColdJourney(browser, round) {
 
   const css = await page.locator('link[rel="stylesheet"]').getAttribute('href');
   const js = await page.locator('script[src*="app.js"]').getAttribute('src');
-  if (!css?.includes('stable-v7') || !js?.includes('stable-v7')) {
+  if (!css?.includes('stable-v9') || !js?.includes('stable-v9')) {
     throw new Error('第' + round + '轮缓存破坏版本号未更新');
   }
 
@@ -162,6 +162,7 @@ async function runColdJourney(browser, round) {
   await page.locator('#skill-options button').first().waitFor({ state:'visible', timeout:1000 });
   const q1 = await page.locator('#skill-question-text').textContent();
   if (/\$\$|\\text(?:less|greater)|\\ne/.test(q1)) throw new Error('训练题仍暴露原始数学标记');
+  if (/[\\]textbar|[\\]textbf|\\text/.test(q1)) throw new Error('训练题仍暴露LaTeX文本命令：' + q1);
   const visibleSkillText = (q1 + ' ' + await page.locator('#skill-options').textContent()).trim();
   if (/\$\$|\\text(?:less|greater)\s*\{|\\text(?:less|greater)/.test(visibleSkillText)) {
     throw new Error('训练题仍显示原始LaTeX标记：' + visibleSkillText.slice(0, 300));
@@ -190,6 +191,15 @@ async function runColdJourney(browser, round) {
   const mistakeCount = Number(await page.locator('#mistake-stat-pending').textContent());
   if (mistakeCount < 1) throw new Error('第'+round+'轮错题没有保存');
 
+  await page.locator('.mistake-item').first().click();
+  for (let step = 1; step <= 5; step++) {
+    if (step === 1) await page.locator('#review-action-area button[data-review-answer]').first().click();
+    await page.locator('#review-next').click();
+    await page.waitForTimeout(20);
+  }
+  const pendingBadge=Number(await page.locator('#mistake-stat-pending').textContent());
+  if (pendingBadge >= mistakeCount) throw new Error('五步复盘后待复盘数量未下降');
+
   await assertPage(page,'qa');
   await page.locator('#chat-input').fill('帮我判断卡点');
   await page.locator('#chat-form').dispatchEvent('submit');
@@ -206,6 +216,9 @@ async function runColdJourney(browser, round) {
 
   await assertPage(page,'motivation');
   const motivationPercent = await page.locator('#motivation-complete').textContent();
+  const taskRate = await page.locator('#task-rate').textContent();
+  if (!/^完成率\s+\d+%$/.test(taskRate.trim())) throw new Error('今日任务完成率显示异常：' + taskRate);
+  if (/今日完成度：0%/.test(await page.locator('#motivation-reason').textContent())) throw new Error('学习激励仍混入旧的0%统计');
   if (motivationPercent.trim() === '0%') throw new Error('真实训练后学习激励仍显示今日完成0%');
   const masteryText = await page.locator('#report-mastery-change').textContent();
   if (masteryText.trim() === '--') throw new Error('真实训练后知识点提升仍显示--');

@@ -192,13 +192,21 @@ async function runColdJourney(browser, round) {
   if (mistakeCount < 1) throw new Error('第'+round+'轮错题没有保存');
 
   await page.locator('.mistake-item').first().click();
-  for (let step = 1; step <= 5; step++) {
-    if (step === 1) await page.locator('#review-action-area button[data-review-answer]').first().click();
-    await page.locator('#review-next').click();
-    await page.waitForTimeout(20);
-  }
-  const pendingBadge=Number(await page.locator('#mistake-stat-pending').textContent());
-  if (pendingBadge >= mistakeCount) throw new Error('五步复盘后待复盘数量未下降');
+  await page.locator('#review-feedback-input').waitFor({state:'visible',timeout:2000});
+  await page.locator('#review-feedback-input').fill('我当时不知道第一步应该从哪个条件开始，也不确定题目要我求什么。');
+  await page.locator('#review-feedback-submit').click();
+  await page.waitForFunction(() => document.getElementById('review-status')?.textContent?.includes('第 1/5 步'), {timeout:3000});
+  await page.locator('#review-next').click();
+  await page.locator('#review-next').click();
+  if (!(await page.locator('#review-action-area').textContent()).includes('完整解法')) throw new Error('错题复盘没有展示完整原题解法');
+  await page.locator('#review-next').click();
+  const targetedCount = await page.locator('.targeted-training-card').count();
+  if (targetedCount < 1) throw new Error('错题复盘没有生成可点击针对训练题');
+  await page.locator('.targeted-training-card').first().click();
+  await page.locator('#skill-answer-image').waitFor({state:'attached',timeout:1000});
+  if (!(await page.locator('#review-training-banner').isVisible())) throw new Error('进入针对题后没有显示错题复盘训练标记');
+  await page.locator('#review-training-back').click();
+  await page.locator('#mistakes').waitFor({state:'visible',timeout:1000});
 
   await assertPage(page,'qa');
   await page.locator('#chat-input').fill('帮我判断卡点');

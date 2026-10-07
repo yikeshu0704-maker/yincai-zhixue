@@ -28,6 +28,9 @@ jobs:
       - name: Run browser smoke test
         run: node tests/frontend-smoke.cjs
 
+      - name: Run full regression test
+        run: node tests/full-regression.cjs
+
       - name: Dump server log on failure
         if: failure()
         run: cat /tmp/yincai-http.log

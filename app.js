@@ -27,10 +27,14 @@ setInterval(checkBackendHealth, 30000);
 const PROFILE_KEY = 'yincaiProfile';
 const TASK_KEY = 'yincaiTasks';
 const STREAK_KEY = 'yincaiStreak';
-const DATA_VERSION = '2026-10-07-question-bank-3000-v1';
+const DATA_VERSION = '2026-10-07-question-bank-3000-v2';
 
+/*
+ * 数据版本只用于记录当前前端结构版本。
+ * 绝不因为代码更新、题库更新或部署更新删除学生画像、错题、训练记录。
+ * 需要清理数据时必须由用户显式执行。
+ */
 if (localStorage.getItem('yincaiDataVersion') !== DATA_VERSION) {
-  ['yincaiProfile', 'yincaiTasks', 'yincaiStreak', 'yincaiMistakes'].forEach((key) => localStorage.removeItem(key));
   localStorage.setItem('yincaiDataVersion', DATA_VERSION);
 }
 
@@ -78,7 +82,6 @@ function closeOnboarding() {
 }
 
 
-const navItems = [...document.querySelectorAll('.nav-item')];
 const pages = [...document.querySelectorAll('.page')];
 const titleMap = {
   dashboard: '你的今日学习计划',
@@ -92,14 +95,36 @@ const titleMap = {
 };
 
 function showPage(id) {
-  pages.forEach((page) => page.classList.toggle('active-page', page.id === id));
-  navItems.forEach((item) => item.classList.toggle('active', item.dataset.page === id));
-  document.getElementById('page-title').textContent = titleMap[id] || '因材智学';
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  const page = document.getElementById(id);
+  if (!page || !page.classList.contains('page')) {
+    showToast('页面暂不可用：' + String(id || '未知页面'));
+    return false;
+  }
+  pages.forEach((item) => item.classList.toggle('active-page', item === page));
+  document.querySelectorAll('.nav-item').forEach((item) => {
+    item.classList.toggle('active', item.dataset.page === id);
+  });
+  const titleNode = document.getElementById('page-title');
+  if (titleNode) titleNode.textContent = titleMap[id] || '因材智学';
+  if (typeof window.scrollTo === 'function') {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+  return true;
 }
 
-navItems.forEach((item) => item.addEventListener('click', () => showPage(item.dataset.page)));
-document.querySelectorAll('[data-go]').forEach((button) => button.addEventListener('click', () => showPage(button.dataset.go)));
+// 事件委托：静态和动态生成的导航/跳转按钮都由同一处处理。
+document.querySelector('.nav')?.addEventListener('click', (event) => {
+  const item = event.target.closest('.nav-item');
+  if (item) showPage(item.dataset.page);
+});
+
+document.addEventListener('click', (event) => {
+  const button = event.target.closest('[data-go]');
+  if (button) {
+    event.preventDefault();
+    showPage(button.dataset.go);
+  }
+});
 
 document.querySelectorAll('.task-item input').forEach((input) => {
   input.addEventListener('change', () => {

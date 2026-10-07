@@ -141,11 +141,6 @@ async function runColdJourney(browser, round) {
   if (!(await page.locator('#motivation').locator('text=学习激励 Agent').isVisible())) {
     throw new Error('首页没有可见的学习激励入口');
   }
-  const motivationPercent = await page.locator('#motivation-complete').textContent();
-  if (motivationPercent.trim() === '0%') throw new Error('真实训练后学习激励仍显示今日完成0%');
-  const masteryText = await page.locator('#report-mastery-change').textContent();
-  if (masteryText.trim() === '--') throw new Error('真实训练后知识点提升仍显示--');
-
   // Test actual in-page jump buttons in addition to sidebar navigation.
   await assertPage(page,'dashboard');
   await page.locator('#dashboard button[data-go="plan"]').first().click();
@@ -208,6 +203,12 @@ async function runColdJourney(browser, round) {
   if (reportText.includes('最大的突破是“一次函数”') || reportPill === '持续进步') {
     throw new Error('学习报告仍使用预置总结');
   }
+
+  await assertPage(page,'motivation');
+  const motivationPercent = await page.locator('#motivation-complete').textContent();
+  if (motivationPercent.trim() === '0%') throw new Error('真实训练后学习激励仍显示今日完成0%');
+  const masteryText = await page.locator('#report-mastery-change').textContent();
+  if (masteryText.trim() === '--') throw new Error('真实训练后知识点提升仍显示--');
 
   // Persistence: 10 reloads, with navigation checks each time.
   for (let reload = 1; reload <= 10; reload++) {
